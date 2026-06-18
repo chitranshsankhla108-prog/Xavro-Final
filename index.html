@@ -33,7 +33,7 @@
 
   <!-- ?v= is a cache-buster: bump it whenever you change the file so the immutable
        cache in vercel.json serves the new asset instead of a stale copy. -->
-  <link rel="stylesheet" href="css/styles.css?v=2" />
+  <link rel="stylesheet" href="css/styles.css?v=4" />
 </head>
 <body class="is-loading">
 
@@ -68,7 +68,10 @@
          lit top-left edge, a dark underside, thickness, and a soft contact shadow. -->
     <div class="veil" id="veil">
       <div class="veil__glow"></div>
-      <svg class="veil__svg" id="veilSvg" viewBox="0 0 1000 1500" preserveAspectRatio="none" focusable="false">
+      <!-- viewBox is replaced by JS each measure() to match the element's px box 1:1 (uniform
+           scale). No preserveAspectRatio="none": that non-uniform stretch is what made the wide
+           ribbon strokes require non-scaling-stroke, which Safari's GPU compositor dropped. -->
+      <svg class="veil__svg" id="veilSvg" viewBox="0 0 1000 1500" focusable="false">
         <defs>
           <!-- Satin cross-section: lit cobalt edge (left) -> bright sheen -> matte body ->
                dark underside (right). Mostly-across-X direction so the ribbon reads as a
@@ -91,11 +94,12 @@
             <stop offset="1"    stop-color="#2c4a8f" stop-opacity="0.12" />
           </linearGradient>
           <filter id="ribbonBlur" x="-25%" y="-25%" width="150%" height="150%">
-            <feGaussianBlur stdDeviation="16" />
+            <feGaussianBlur stdDeviation="14" />
           </filter>
-          <!-- wide, soft halo used by the luminous edge glow that tracks the ribbon -->
-          <filter id="ribbonGlow" x="-80%" y="-80%" width="260%" height="260%">
-            <feGaussianBlur stdDeviation="48" />
+          <!-- soft halo for the luminous edge glow. Kept modest (lighter GPU filter) so Safari
+               keeps the blur instead of dropping it; the glow is faint + non-critical anyway. -->
+          <filter id="ribbonGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="30" />
           </filter>
           <!-- SUBTLE WHITE light catching the satin on ONE part of the ribbon (the upper bend),
                fading to nothing elsewhere so the rest of the ribbon stays near-black — the soft
@@ -386,6 +390,6 @@
 
   </main>
 
-  <script src="js/main.js?v=2"></script>
+  <script src="js/main.js?v=3"></script>
 </body>
 </html>

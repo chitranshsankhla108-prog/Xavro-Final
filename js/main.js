@@ -66,6 +66,7 @@
   var body    = document.body;
   var loader  = document.getElementById("loader");
   var veil    = document.getElementById("veil");
+  var veilSvg = document.getElementById("veilSvg");
   var rbGlow   = document.getElementById("ribbonGlowPath");
   var rbShadow = document.getElementById("ribbonShadowPath");
   var rbUnder  = document.getElementById("ribbonUnderPath");
@@ -90,6 +91,16 @@
   /* ---------- viewport ---------- */
   var vw = window.innerWidth, vh = window.innerHeight;
 
+  /* Live SVG user-space size (px). SAFARI FIX: the veil SVG now uses a viewBox that exactly
+     matches its pixel box (1 user unit = 1 px, UNIFORM scale) instead of viewBox="0 0 1000 1500"
+     + preserveAspectRatio="none". The old non-uniform stretch forced `vector-effect:
+     non-scaling-stroke` on the wide ribbon strokes, which WebKit's GPU compositor mis-rasterises
+     (the dark body band drops out, leaving only a bright edge — the Safari-only bug). With a 1:1
+     viewBox the strokes are plain, uniformly scaled, and render identically on every engine.
+     Paths + userSpaceOnUse gradients are rebuilt into this px space each measure(), so the
+     on-screen geometry is byte-for-byte the same as before — only the rendering path is safer. */
+  var VBW = 1000, VBH = 1500;
+
   /* ---------- layout (document-space starts + heights) ---------- */
   var starts = [], fulls = [], ranges = [];
   function measure() {
@@ -103,7 +114,7 @@
       ranges[i] = Math.max(1, fulls[i] - vh);
     }
     starts[sectionEls.length] = starts[LAST] + fulls[LAST]; /* sentinel */
-    updateRibbonWidths();
+    syncVeilSpace(); /* size the SVG user space to px + rebuild paths/gradients/widths */
     lastSY = -1; /* force a full scroll-dependent recompute next frame after any relayout */
   }
 
@@ -193,13 +204,45 @@
   /* veil element size in px — must match CSS (.veil width min(86vw,1280px), height 150vh) */
   function veilSize() { return { w: Math.min(0.86 * vw, 1280), h: 1.50 * vh }; }
 
-  /* ---- build the ribbon SVG (centerline + offset copies for material depth) ---- */
+  /* ---- build the ribbon SVG (centerline + offset copies for material depth) ----
+     Coordinates are emitted in the LIVE px user space (VBW x VBH). Because VBW/VBH equal the
+     veil element's pixel box and the viewBox matches 1:1, multiplying the normalised curve by
+     VBW/VBH yields the exact same on-screen position the old (×1000 / ×1500 then stretched)
+     path produced — geometry-preserving, just without the non-uniform stretch. */
   function pathD(ox, oy) {
-    function P(pt) { return ((pt.x + ox) * 1000).toFixed(1) + " " + ((pt.y + oy) * 1500).toFixed(1); }
+    function P(pt) { return ((pt.x + ox) * VBW).toFixed(1) + " " + ((pt.y + oy) * VBH).toFixed(1); }
     var s0 = SEG[0], s1 = SEG[1];
     return "M " + P(s0[0]) +
            " C " + P(s0[1]) + " " + P(s0[2]) + " " + P(s0[3]) +
            " C " + P(s1[1]) + " " + P(s1[2]) + " " + P(s1[3]);
+  }
+
+  /* userSpaceOnUse gradients were authored in the old 1000x1500 space; rescale their endpoints
+     into the live px space so the satin shading + glow highlight stay in the same place. */
+  var GRADS = {
+    ribbonBody:     [180, 260, 900, 1180],
+    ribbonGlowGrad: [120, 40,  760, 1360]
+  };
+  function rescaleGradients() {
+    var sx = VBW / 1000, sy = VBH / 1500;
+    for (var id in GRADS) {
+      var g = document.getElementById(id); if (!g) continue;
+      var c = GRADS[id];
+      g.setAttribute("x1", (c[0] * sx).toFixed(1));
+      g.setAttribute("y1", (c[1] * sy).toFixed(1));
+      g.setAttribute("x2", (c[2] * sx).toFixed(1));
+      g.setAttribute("y2", (c[3] * sy).toFixed(1));
+    }
+  }
+
+  /* size the SVG user space to the element's px box, then rebuild everything that lives in it */
+  function syncVeilSpace() {
+    var sz = veilSize();
+    VBW = sz.w; VBH = sz.h;
+    veilSvg.setAttribute("viewBox", "0 0 " + VBW.toFixed(1) + " " + VBH.toFixed(1));
+    rescaleGradients();
+    buildRibbonPaths();
+    updateRibbonWidths();
   }
   function buildRibbonPaths() {
     rbGlow.setAttribute("d",   pathD(-0.040, -0.018)); /* luminous halo, biased to the lit edge, tracks the wave */
@@ -210,17 +253,21 @@
     rbRim.setAttribute("d",    pathD(-0.182, -0.030)); /* crisp cobalt rim on the lit (left) edge */
     rbSpec.setAttribute("d",   pathD(-0.085, -0.020)); /* glint rides ON the satin surface, just inside the lit edge */
   }
+  /* set stroke width as a USER-UNIT attribute (not a CSS px style). In the 1:1 viewBox 1 user
+     unit = 1 px, so this is the same on-screen width as before — but it no longer relies on
+     vector-effect:non-scaling-stroke, the construct WebKit's GPU path mis-handles. */
+  function setW(el, w) { el.setAttribute("stroke-width", w.toFixed(1)); el.style.strokeWidth = ""; }
   function updateRibbonWidths() {
     /* WIDE satin ribbon (reference-lock): a true content surface, not a strip. The cards
        (~216px) then sit on it with editorial margin. Kept below the curve's coil threshold. */
-    var band = veilSize().w * 0.30;
-    rbGlow.style.strokeWidth   = (band * 1.05).toFixed(1) + "px"; /* white light sits over the band, not a wide halo */
-    rbShadow.style.strokeWidth = (band * 1.10).toFixed(1) + "px";
-    rbUnder.style.strokeWidth  = (band * 1.02).toFixed(1) + "px"; /* dark underside peeks past the body = thickness */
-    rbBody.style.strokeWidth   = band.toFixed(1) + "px";
-    rbSheen.style.strokeWidth  = (band * 0.34).toFixed(1) + "px"; /* satin highlight band */
-    rbRim.style.strokeWidth    = (band * 0.055).toFixed(1) + "px";
-    rbSpec.style.strokeWidth   = (band * 0.05).toFixed(1) + "px"; /* thin glint, not a fat streak */
+    var band = VBW * 0.30;
+    setW(rbGlow,   band * 1.05); /* white light sits over the band, not a wide halo */
+    setW(rbShadow, band * 1.10);
+    setW(rbUnder,  band * 1.02); /* dark underside peeks past the body = thickness */
+    setW(rbBody,   band);
+    setW(rbSheen,  band * 0.34); /* satin highlight band */
+    setW(rbRim,    band * 0.055);
+    setW(rbSpec,   band * 0.05); /* thin glint, not a fat streak */
   }
 
   /* current (already-lerped) veil transform; set every frame before placing cards */
@@ -558,8 +605,7 @@
 
   /* ---------- boot wiring ---------- */
   function startSite() {
-    buildRibbonPaths();
-    measure();
+    measure(); /* sizes the SVG user space + builds the ribbon paths/gradients/widths */
     window.addEventListener("resize", onResize, { passive: true });
 
     if (REDUCED) {

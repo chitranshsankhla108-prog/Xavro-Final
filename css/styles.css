@@ -140,7 +140,9 @@ img, svg { display: block; }
 }
 .veil__glow {
   position: absolute;
-  inset: -55% -60%;
+  /* Tighter than before: a smaller composited blur layer. Safari clips/drops very large
+     GPU-rasterised blur surfaces, so the bloom stays well inside texture limits. */
+  inset: -38% -42%;
   /* BROAD, diffuse cobalt bloom behind the ribbon — ambient light, never a discrete blob.
      Lives inside .veil so it tracks the veil's position/rotation through the scroll. */
   background:
@@ -149,7 +151,9 @@ img, svg { display: block; }
      Kept very faint + very broad so it reads as ambient light, never a discrete blob —
      the main cobalt bloom comes from .atmos__navy at frame scale. */
   opacity: calc(var(--vglow) * (0.55 + (var(--glow-pulse) + 1) * 0.05));
-  filter: blur(95px);
+  /* radial-gradient is already soft; a 46px blur is plenty and far cheaper for Safari's GPU
+     than the old 95px (which can be clamped/dropped, killing the bloom). */
+  filter: blur(46px);
   transform: translate3d(calc(var(--veil-drift) * -8px), calc(var(--veil-breathe) * 7px), 0)
              scale(calc(1 + (var(--glow-pulse) + 1) * 0.03));
   will-change: transform, opacity;
@@ -163,20 +167,24 @@ img, svg { display: block; }
   /* whole-ribbon darkening for the Pain phase */
   opacity: calc(1 - var(--vdark) * 0.22);
 }
-/* Ribbon layers — all share one centerline, offset to fake material depth. */
+/* Ribbon layers — all share one centerline, offset to fake material depth.
+   NOTE: no `vector-effect: non-scaling-stroke` — stroke widths are real user units in a 1:1
+   viewBox (set by JS). non-scaling-stroke under the old non-uniform viewBox is exactly what
+   WebKit's GPU compositor dropped, leaving the bright-edge / no-body veil seen on Safari. */
 .rb {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
 }
 /* subtle WHITE light catching the satin on one part of the ribbon (upper bend); --vglow +
    glow-pulse keep it gently breathing so the light feels alive, never a flat painted blob */
+/* No mix-blend-mode here: blend modes on SVG sub-elements composite inconsistently on Safari's
+   GPU path. At this low opacity, painting the soft white highlight normally over the (now
+   reliably-rendered) dark body looks the same on every engine. */
 .rb--glow {
   stroke: url(#ribbonGlowGrad);
   filter: url(#ribbonGlow);
-  mix-blend-mode: screen;
-  opacity: calc(var(--vglow) * (0.16 + (var(--glow-pulse) + 1) * 0.03) - var(--vdark) * 0.3);
+  opacity: calc(var(--vglow) * (0.18 + (var(--glow-pulse) + 1) * 0.03) - var(--vdark) * 0.3);
 }
 .rb--shadow { stroke: #000; opacity: 0.5; filter: url(#ribbonBlur); }
 /* underside thickness — neutral-dark (NOT blue) so it never reads as a light line on the edge */
@@ -201,9 +209,9 @@ img, svg { display: block; }
   position: absolute;
   top: 50%;
   left: 50%;
-  width: clamp(140px, 12vw, 188px);
-  height: clamp(192px, 16.4vw, 256px);
-  margin: -8.9vw 0 0 -6.5vw;
+  width: clamp(154px, 13.2vw, 207px);
+  height: clamp(211px, 18vw, 282px);
+  margin: -9.8vw 0 0 -7.15vw;
   border-radius: 4px;                          /* sharper corners */
   /* sharp matte slip: near-black with a faint cool lift only in the top-left corner */
   background:
