@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Add your sitemap once your production domain is set, e.g.:
+# Sitemap: https://YOUR-DOMAIN.com/sitemap.xml

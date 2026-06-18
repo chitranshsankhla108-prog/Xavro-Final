@@ -1,0 +1,22 @@
+// Zoomed capture of a region. Usage: node qa/zoom.mjs <name> <frac> <x> <y> <w> <h>
+import { chromium } from "playwright";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+import { mkdirSync } from "fs";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const outDir = join(__dirname, "..", "qa-screenshots", "zoom");
+mkdirSync(outDir, { recursive: true });
+const [name, frac, x, y, w, h] = process.argv.slice(2);
+const URL = "http://127.0.0.1:8123/index.html";
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+const p = await ctx.newPage();
+await p.addInitScript(() => { window.__XAVRO_INSTANT = true; try { sessionStorage.setItem("xavro_seen","1"); } catch(e){} });
+await p.goto(URL, { waitUntil: "networkidle" });
+await p.waitForTimeout(1400);
+const total = await p.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+await p.evaluate((y) => window.scrollTo(0, y), Math.round(total * parseFloat(frac)));
+await p.waitForTimeout(650);
+await p.screenshot({ path: join(outDir, name + ".png"), clip: { x: +x, y: +y, width: +w, height: +h } });
+await b.close();
+console.log("zoom ->", name);

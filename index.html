@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0B0B0F" />
+  <title>XAVRO — Done-for-you Instagram content for fitness coaches</title>
+  <meta name="description" content="You coach. We handle the content. XAVRO turns scattered posting into a monthly content system for fitness coaches — Reels, carousels, captions, strategy, calendar." />
+  <meta name="robots" content="index, follow" />
+
+  <!-- TODO before launch: replace https://YOUR-DOMAIN.com with your real production domain. -->
+  <link rel="canonical" href="https://YOUR-DOMAIN.com/" />
+
+  <!-- Favicon: inline SVG (no binary asset needed); avoids a 404 on /favicon.ico -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='6'%20fill='%230B0B0F'/%3E%3Cpath%20d='M9%209%20L23%2023%20M23%209%20L9%2023'%20stroke='%236f96ec'%20stroke-width='3'%20stroke-linecap='round'/%3E%3C/svg%3E" />
+
+  <!-- Open Graph / Twitter: controls the preview when this link is shared on Instagram, etc.
+       TODO before launch: set og:url + a real 1200x630 og:image on your production domain. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="XAVRO" />
+  <meta property="og:title" content="XAVRO — Done-for-you Instagram content for fitness coaches" />
+  <meta property="og:description" content="You coach. We handle the content. XAVRO turns scattered posting into a monthly content system for fitness coaches." />
+  <meta property="og:url" content="https://YOUR-DOMAIN.com/" />
+  <meta property="og:image" content="https://YOUR-DOMAIN.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="XAVRO — Done-for-you Instagram content for fitness coaches" />
+  <meta name="twitter:description" content="You coach. We handle the content. We turn scattered posting into a monthly content system for fitness coaches." />
+  <meta name="twitter:image" content="https://YOUR-DOMAIN.com/og-image.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Hanken+Grotesk:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet" />
+
+  <!-- ?v= is a cache-buster: bump it whenever you change the file so the immutable
+       cache in vercel.json serves the new asset instead of a stale copy. -->
+  <link rel="stylesheet" href="css/styles.css?v=2" />
+</head>
+<body class="is-loading">
+
+  <!-- ============================ LOADER ============================ -->
+  <div class="loader" id="loader" aria-hidden="true">
+    <div class="loader__inner">
+      <div class="loader__mark">XAVRO</div>
+      <!-- The thin line draws, a cobalt light travels it, it is already a gentle
+           S-curve, and matte slips settle on it — the seed of the hero veil. -->
+      <svg class="loader__curve" viewBox="0 0 600 220" fill="none" focusable="false">
+        <path class="lc-line" d="M60 140 C 200 80, 400 196, 540 116" />
+        <rect class="lc-slip" data-s="0" x="-13" y="-18" width="26" height="36" rx="4" />
+        <rect class="lc-slip" data-s="1" x="-13" y="-18" width="26" height="36" rx="4" />
+        <rect class="lc-slip" data-s="2" x="-13" y="-18" width="26" height="36" rx="4" />
+        <rect class="lc-slip" data-s="3" x="-13" y="-18" width="26" height="36" rx="4" />
+        <circle class="lc-dot" r="3.5" />
+      </svg>
+    </div>
+  </div>
+
+  <!-- ====================== PERSISTENT VISUAL STAGE ====================== -->
+  <!-- One fixed stage for the whole page: atmosphere + the Editorial Reel Veil + 5 matte cards -->
+  <div class="stage" id="stage" aria-hidden="true">
+    <div class="atmos">
+      <span class="atmos__base"></span>
+      <span class="atmos__haze"></span>
+      <span class="atmos__navy"></span>
+    </div>
+
+    <!-- The veil: a wide cinematic matte S-curve ribbon built from stacked strokes.
+         All five paths share one centerline (set by JS) but are offset to fake a
+         lit top-left edge, a dark underside, thickness, and a soft contact shadow. -->
+    <div class="veil" id="veil">
+      <div class="veil__glow"></div>
+      <svg class="veil__svg" id="veilSvg" viewBox="0 0 1000 1500" preserveAspectRatio="none" focusable="false">
+        <defs>
+          <!-- Satin cross-section: lit cobalt edge (left) -> bright sheen -> matte body ->
+               dark underside (right). Mostly-across-X direction so the ribbon reads as a
+               curved surface catching light, not a flat colour band. -->
+          <linearGradient id="ribbonBody" gradientUnits="userSpaceOnUse" x1="180" y1="260" x2="900" y2="1180">
+            <stop offset="0"    stop-color="#0e1320" />   <!-- cobalt-black: a deep navy undertone, not pure black -->
+            <stop offset="0.12" stop-color="#0a0e18" />
+            <stop offset="0.35" stop-color="#070912" />   <!-- cobalt-tinted matte body -->
+            <stop offset="0.65" stop-color="#05060d" />
+            <stop offset="1"    stop-color="#040509" />   <!-- darkest cobalt-black underside -->
+          </linearGradient>
+          <linearGradient id="ribbonSheen" gradientUnits="userSpaceOnUse" x1="150" y1="200" x2="780" y2="1180">
+            <stop offset="0"    stop-color="#eef2fb" stop-opacity="0.20" />
+            <stop offset="0.34" stop-color="#d6dded" stop-opacity="0.03" />
+            <stop offset="0.6"  stop-color="#ffffff" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="ribbonRim" gradientUnits="userSpaceOnUse" x1="200" y1="60" x2="700" y2="1320">
+            <stop offset="0"    stop-color="#d4e3ff" stop-opacity="1" />
+            <stop offset="0.45" stop-color="#6f96ec" stop-opacity="0.62" />
+            <stop offset="1"    stop-color="#2c4a8f" stop-opacity="0.12" />
+          </linearGradient>
+          <filter id="ribbonBlur" x="-25%" y="-25%" width="150%" height="150%">
+            <feGaussianBlur stdDeviation="16" />
+          </filter>
+          <!-- wide, soft halo used by the luminous edge glow that tracks the ribbon -->
+          <filter id="ribbonGlow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="48" />
+          </filter>
+          <!-- SUBTLE WHITE light catching the satin on ONE part of the ribbon (the upper bend),
+               fading to nothing elsewhere so the rest of the ribbon stays near-black — the soft
+               specular highlight from the reference, not a coloured glow. -->
+          <linearGradient id="ribbonGlowGrad" gradientUnits="userSpaceOnUse" x1="120" y1="40" x2="760" y2="1360">
+            <stop offset="0"    stop-color="#eef3ff" stop-opacity="0" />
+            <stop offset="0.16" stop-color="#eef3ff" stop-opacity="0" />
+            <stop offset="0.30" stop-color="#f4f7ff" stop-opacity="0.85" />
+            <stop offset="0.44" stop-color="#dde6fb" stop-opacity="0.16" />
+            <stop offset="0.6"  stop-color="#ffffff" stop-opacity="0" />
+            <stop offset="1"    stop-color="#ffffff" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        <!-- LUMINOUS EDGE GLOW: a heavily-blurred cobalt copy of the centerline. Because it
+             rides the exact same wave path, the halo tracks the ribbon as it snakes — soft
+             ambient light hugging the surface, never a flat background wash. -->
+        <path id="ribbonGlowPath"   class="rb rb--glow" />
+        <path id="ribbonShadowPath" class="rb rb--shadow" />
+        <path id="ribbonUnderPath"  class="rb rb--under" />
+        <path id="ribbonBodyPath"   class="rb rb--body" />
+        <path id="ribbonSheenPath"  class="rb rb--sheen" />
+        <path id="ribbonRimPath"    class="rb rb--rim" />
+        <!-- specular glint that slowly travels along the lit edge (light on satin) -->
+        <path id="ribbonSpecPath"   class="rb rb--spec" pathLength="1000" />
+      </svg>
+    </div>
+
+    <!-- The 5 persistent matte content cards. Embedded mode shows the vertical spine
+         label; detached (Deliverables) mode cross-fades to the horizontal bar + detail. -->
+    <div class="cards" id="cards">
+      <article class="card" data-i="0">
+        <span class="card__tab"></span>
+        <span class="card__spine"><b class="card__sp-label">REELS</b><i class="card__sp-num">/ 01</i></span>
+        <header class="card__bar"><span class="card__bar-label">REELS</span><span class="card__bar-num">/ 01</span></header>
+        <div class="card__detail">
+          <div class="card__big">12–16<br>REELS</div>
+          <div class="card__sub">Hooks · Objections · Authority · CTA</div>
+        </div>
+        <span class="card__state" aria-hidden="true"></span>
+        <span class="card__chip"></span>
+        <span class="card__foot" aria-hidden="true"></span>
+      </article>
+      <article class="card" data-i="1">
+        <span class="card__tab"></span>
+        <span class="card__spine"><b class="card__sp-label">CAROUSELS</b><i class="card__sp-num">/ 02</i></span>
+        <header class="card__bar"><span class="card__bar-label">CAROUSELS</span><span class="card__bar-num">/ 02</span></header>
+        <div class="card__detail">
+          <div class="card__big">4–8<br>CAROUSELS</div>
+          <div class="card__sub">Education · Trust · Positioning</div>
+        </div>
+        <span class="card__state" aria-hidden="true"></span>
+        <span class="card__chip"></span>
+        <span class="card__foot" aria-hidden="true"></span>
+      </article>
+      <article class="card" data-i="2">
+        <span class="card__tab"></span>
+        <span class="card__spine"><b class="card__sp-label">CAPTIONS</b><i class="card__sp-num">/ 03</i></span>
+        <header class="card__bar"><span class="card__bar-label">CAPTIONS</span><span class="card__bar-num">/ 03</span></header>
+        <div class="card__detail">
+          <div class="card__big">CAPTIONS<br>THAT SELL</div>
+          <div class="card__sub">Save-worthy · DM-driving · Buyer psychology</div>
+        </div>
+        <span class="card__state" aria-hidden="true"></span>
+        <span class="card__chip"></span>
+        <span class="card__foot" aria-hidden="true"></span>
+      </article>
+      <article class="card" data-i="3">
+        <span class="card__tab"></span>
+        <span class="card__spine"><b class="card__sp-label">STRATEGY</b><i class="card__sp-num">/ 04</i></span>
+        <header class="card__bar"><span class="card__bar-label">STRATEGY</span><span class="card__bar-num">/ 04</span></header>
+        <div class="card__detail">
+          <div class="card__big">STRATEGY<br>CALL</div>
+          <div class="card__sub">Offer · Audience · Direction</div>
+        </div>
+        <span class="card__state" aria-hidden="true"></span>
+        <span class="card__chip"></span>
+        <span class="card__foot" aria-hidden="true"></span>
+      </article>
+      <article class="card" data-i="4">
+        <span class="card__tab"></span>
+        <span class="card__spine"><b class="card__sp-label">CALENDAR</b><i class="card__sp-num">/ 05</i></span>
+        <header class="card__bar"><span class="card__bar-label">CALENDAR</span><span class="card__bar-num">/ 05</span></header>
+        <div class="card__detail">
+          <div class="card__big">CONTENT<br>CALENDAR</div>
+          <div class="card__sub">Monthly rhythm · No daily guessing</div>
+        </div>
+        <span class="card__state" aria-hidden="true"></span>
+        <span class="card__chip"></span>
+        <span class="card__foot" aria-hidden="true"></span>
+      </article>
+    </div>
+
+    <!-- thin connector drawn from the active Deliverables card back to the veil origin -->
+    <span class="vlink" id="vlink"></span>
+
+    <!-- diagnosis connectors: thin lines drawn from each audit row to its card on the veil -->
+    <span class="dlink" data-d="0"></span>
+    <span class="dlink" data-d="1"></span>
+    <span class="dlink" data-d="2"></span>
+    <span class="dlink" data-d="3"></span>
+
+    <div class="vignette"></div>
+    <div class="grain"></div>
+  </div>
+
+  <!-- ============================ HEADER ============================ -->
+  <header class="brand">
+    <span class="brand__mark">XAVRO</span>
+  </header>
+
+  <!-- ============================ CONTENT ============================ -->
+  <main class="content">
+
+    <!-- ----------------------- HERO ----------------------- -->
+    <section class="section section--hero" id="hero" data-section>
+      <div class="section__inner">
+        <div class="copy">
+          <h1 class="display display--hero">
+            <span class="line"><span class="line__ink">YOUR TRAINING IS ELITE.</span></span>
+            <span class="line"><span class="line__ink">YOUR FEED MAKES YOU</span></span>
+            <span class="line"><span class="line__ink">LOOK <em class="accent">AVERAGE.</em></span></span>
+          </h1>
+          <p class="lede">You get clients results. Your content should prove it before the sales call.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------- DIAGNOSIS ----------------------- -->
+    <section class="section section--diagnosis" id="diagnosis" data-section>
+      <div class="section__inner">
+        <div class="copy">
+          <div class="meta">
+            <span class="meta__idx">02 / Diagnosis</span>
+            <span class="meta__tag">Content Perception Data</span>
+          </div>
+          <h2 class="display">
+            <span class="line"><span class="line__ink">THE PROBLEM ISN’T</span></span>
+            <span class="line"><span class="line__ink">YOUR COACHING.</span></span>
+            <span class="line"><span class="line__ink">IT’S WHAT YOUR CONTENT IS</span></span>
+            <span class="line"><span class="line__ink">SAYING <em class="accent">BEFORE YOU DO.</em></span></span>
+          </h2>
+          <p class="lede">Your content is the first handshake. Right now, it’s not telling the right story.</p>
+
+          <ul class="audit" aria-label="Content audit">
+            <li class="audit__row" style="--d:0">
+              <span class="audit__id">[01]</span>
+              <span class="audit__name">Content Perception</span>
+              <span class="audit__line"></span>
+              <span class="audit__state" data-state="weak">Weak</span>
+            </li>
+            <li class="audit__row" style="--d:1">
+              <span class="audit__id">[02]</span>
+              <span class="audit__name">Consistency Signal</span>
+              <span class="audit__line"></span>
+              <span class="audit__state" data-state="unstable">Unstable</span>
+            </li>
+            <li class="audit__row" style="--d:2">
+              <span class="audit__id">[03]</span>
+              <span class="audit__name">Authority Signal</span>
+              <span class="audit__line"></span>
+              <span class="audit__state" data-state="low">Low</span>
+            </li>
+            <li class="audit__row" style="--d:3">
+              <span class="audit__id">[04]</span>
+              <span class="audit__name">Sales Intent</span>
+              <span class="audit__line"></span>
+              <span class="audit__state" data-state="missing">Missing</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------- PAIN ----------------------- -->
+    <section class="section section--pain" id="pain" data-section>
+      <div class="section__inner">
+        <div class="copy">
+          <div class="meta meta--triple">
+            <span class="meta__idx">03 / Pain</span>
+            <span class="meta__tag">Content Signals</span>
+            <span class="meta__tag">Brand Perception Audit</span>
+          </div>
+          <h2 class="display">
+            <span class="line"><span class="line__ink">YOU’RE POSTING.</span></span>
+            <span class="line"><span class="line__ink">BUT IT ISN’T <em class="accent accent--dim">SELLING.</em></span></span>
+          </h2>
+          <p class="lede">The content is consistent. The conversations are not.</p>
+
+          <ul class="signals" aria-label="Pain signals">
+            <li class="signal" style="--d:0">
+              <span class="signal__id">Signal 01</span>
+              <span class="signal__text">Consistency without conversion</span>
+            </li>
+            <li class="signal" style="--d:1">
+              <span class="signal__id">Signal 02</span>
+              <span class="signal__text">Premium coaching, average perception</span>
+            </li>
+            <li class="signal" style="--d:2">
+              <span class="signal__id">Signal 03</span>
+              <span class="signal__text">Hours lost to editing</span>
+            </li>
+            <li class="signal" style="--d:3">
+              <span class="signal__id">Signal 04</span>
+              <span class="signal__text">Content without sales intent</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------- SYSTEM ----------------------- -->
+    <section class="section section--system" id="system" data-section>
+      <div class="section__inner">
+        <div class="copy">
+          <div class="meta meta--triple">
+            <span class="meta__idx">04 / System</span>
+            <span class="meta__tag">Monthly Content Structure</span>
+            <span class="meta__tag">Offer-led Execution</span>
+          </div>
+          <h2 class="display">
+            <span class="line"><span class="line__ink">WE TURN SCATTERED</span></span>
+            <span class="line"><span class="line__ink">POSTING INTO A MONTHLY</span></span>
+            <span class="line"><span class="line__ink">CONTENT <em class="accent">SYSTEM.</em></span></span>
+          </h2>
+          <p class="lede">Built around your offer, audience, objections, and sales conversations.</p>
+
+          <ol class="system-list" aria-label="The system">
+            <li class="sys" style="--d:0"><span class="sys__n">01</span><div><span class="sys__t">Offer</span><span class="sys__d">What you sell and who it is for.</span></div></li>
+            <li class="sys" style="--d:1"><span class="sys__n">02</span><div><span class="sys__t">Hooks</span><span class="sys__d">Angles that stop the right audience.</span></div></li>
+            <li class="sys" style="--d:2"><span class="sys__n">03</span><div><span class="sys__t">Authority</span><span class="sys__d">Content that makes coaching look premium.</span></div></li>
+            <li class="sys" style="--d:3"><span class="sys__n">04</span><div><span class="sys__t">Conversations</span><span class="sys__d">Posts designed to drive better DMs.</span></div></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------- DELIVERABLES (long sticky) ----------------------- -->
+    <section class="section section--deliverables" id="deliverables" data-section>
+      <div class="section__inner">
+        <div class="copy copy--deliverables">
+          <div class="meta"><span class="meta__idx">05 / Deliverables</span></div>
+          <h2 class="display">
+            <span class="line"><span class="line__ink">WHAT WE BUILD</span></span>
+            <span class="line"><span class="line__ink">EVERY <em class="accent">MONTH.</em></span></span>
+          </h2>
+          <p class="lede">Reels, carousels, captions, strategy, and a content calendar — built around your offer and audience.</p>
+          <span class="ticker" id="delivTicker"><span class="ticker__cur">01</span><span class="ticker__sep">/</span><span class="ticker__tot">05</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------- PROOF ----------------------- -->
+    <section class="section section--proof" id="proof" data-section>
+      <div class="section__inner">
+        <div class="copy copy--proof">
+          <div class="meta"><span class="meta__idx">06 / Proof</span></div>
+          <!-- Single, fixed editorial proof quote (no rotation) — a calm hold after Deliverables. -->
+          <div class="quotes">
+            <figure class="quote is-active">
+              <blockquote class="quote__text">“The content finally made my coaching look as premium as the results I deliver.”</blockquote>
+              <figcaption class="quote__by">
+                <span class="quote__role">Transformation Coach</span>
+                <span class="quote__sub">Stronger brand presence · Clearer positioning</span>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------- FINAL CTA ----------------------- -->
+    <section class="section section--cta" id="cta" data-section>
+      <div class="section__inner">
+        <div class="copy copy--cta">
+          <span class="cta__mark">XAVRO</span>
+          <p class="cta__line">Done-for-you Instagram content for fitness coaches.</p>
+          <!-- LAUNCH BLOCKER: href="#book" is a placeholder and goes nowhere. This is the
+               site's only conversion action — point it at your booking URL (Calendly/Tally)
+               or a mailto: before going live. -->
+          <a class="cta__btn" href="#book" id="bookBtn">
+            <span class="cta__btn-label">Book a strategy call</span>
+            <span class="cta__btn-arrow" aria-hidden="true">→</span>
+          </a>
+          <p class="cta__micro">Reels · Carousels · Captions · Strategy · Calendar</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="js/main.js?v=2"></script>
+</body>
+</html>

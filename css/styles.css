@@ -1,0 +1,1041 @@
+/* =================================================================
+   XAVRO — Editorial Reel Veil
+   Premium dark editorial single-page experience
+   ================================================================= */
+
+/* ----------------------------- FONTS ----------------------------- */
+/* Azonix wordmark. Drop the font file at fonts/Azonix.otf (or .ttf).
+   Until then, the geometric fallback stack renders the wordmark. */
+@font-face {
+  font-family: "Azonix";
+  src: url("../fonts/Azonix.otf") format("opentype"),
+       url("../fonts/Azonix.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ----------------------------- TOKENS ----------------------------- */
+:root {
+  /* Palette — warm ink base (#100E09) + deep navy (#13265C) */
+  --ink:        #100E09;
+  --ink-2:      #0a0906;
+  --off-white:  #F5F5F3;
+  /* Controlled contrast (production readability pass): secondary/tertiary greys lifted so
+     support copy and small labels stay readable on the dark ground without washing the
+     palette out. Primary headlines stay strong off-white; cobalt stays an accent only. */
+  --steel:      #a4a199;
+  --steel-dim:  #7d7a71;
+  --navy:       #13265C;
+  --cobalt:     #1e3a7e;
+  --cobalt-lit: #3c5fb4;
+  --cobalt-ice: #9fb6e6;
+
+  /* Type */
+  --font-mark:    "Azonix", "Michroma", system-ui, sans-serif;
+  --font-display: "Anton", "Hanken Grotesk", sans-serif;
+  --font-body:    "Hanken Grotesk", system-ui, sans-serif;
+
+  /* Rhythm */
+  --pad-x: clamp(1.4rem, 5.5vw, 6.5rem);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Live scroll drivers (written by JS) */
+  --scroll: 0;
+
+  /* Time-based "life" drivers (sin waves written by JS each frame; default 0 so the
+     site is fully static if JS never runs or reduced-motion is on). Scoped where used. */
+  --veil-breathe: 0;   /* -1..1 slow scale/rotate pulse */
+  --veil-drift: 0;     /* -1..1 slow vertical float */
+  --glow-pulse: 0;     /* -1..1 cobalt glow breathe */
+}
+
+/* ----------------------------- RESET ----------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: auto; }
+
+body {
+  background: var(--ink-2);
+  color: var(--off-white);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+body.is-loading { overflow: hidden; height: 100vh; }
+
+::selection { background: var(--cobalt); color: var(--off-white); }
+
+img, svg { display: block; }
+
+/* =================================================================
+   PERSISTENT VISUAL STAGE
+   ================================================================= */
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ---- Atmosphere (layered gradients, no image) ---- */
+.atmos { position: absolute; inset: 0; }
+.atmos span { position: absolute; inset: 0; display: block; }
+
+.atmos__base {
+  background:
+    radial-gradient(56% 50% at 74% 40%, rgba(16,32,78,0.22) 0%, rgba(12,22,44,0.07) 38%, transparent 64%),
+    radial-gradient(40% 42% at 12% 8%, rgba(60,86,150,0.07) 0%, transparent 52%),
+    linear-gradient(150deg, #070608 0%, #0a090c 46%, #040305 100%);
+}
+/* Soft pale-blue haze pooling in the UPPER-LEFT (reference-style light spill), drifting
+   very slowly so the dark feels alive without particles or obvious blobs. */
+.atmos__haze {
+  background:
+    radial-gradient(48% 52% at 5% 0%, rgba(150,182,238,0.34) 0%, rgba(92,128,200,0.12) 44%, transparent 72%),
+    radial-gradient(60% 50% at 0% 16%, rgba(104,142,214,0.14) 0%, transparent 64%);
+  filter: blur(18px);
+  transform-origin: 6% 4%;
+  animation: hazeDrift 26s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes hazeDrift {
+  0%, 100% { transform: translate3d(-1.5%, -1%, 0) scale(1);    opacity: 0.7; }
+  50%      { transform: translate3d(2%,    1.5%, 0) scale(1.06); opacity: 0.95; }
+}
+/* Deep cobalt mass behind the veil, shifts subtly with scroll + a slow breathe */
+.atmos__navy {
+  background:
+    radial-gradient(66% 60% at 78% 46%, rgba(20,38,90,0.30) 0%, rgba(12,24,56,0.08) 50%, transparent 76%),
+    radial-gradient(40% 44% at 92% 62%, rgba(26,48,110,0.20) 0%, rgba(16,32,78,0.06) 54%, transparent 74%);
+  transform:
+    translate3d(calc(var(--scroll) * -4vw), calc(var(--scroll) * 2vh), 0)
+    scale(calc(1 + (var(--glow-pulse) + 1) * 0.018));
+  transition: opacity 0.6s var(--ease);
+  will-change: transform;
+}
+
+/* ---- The Veil (glow + S-curve ribbon) ---- */
+.veil {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(86vw, 1280px);
+  height: 150vh;
+  /* JS drivers, with defaults */
+  --vx: 16vw;  --vy: 0vh;  --vrot: 14deg;  --vscale: 1;  --vdark: 0; --vglow: 0.6;
+  /* Scroll-driven pose (vx/vy/vrot/vscale) + a tiny architectural breathe/float on top.
+     Breathe terms are 0 by default, so the veil is dead-still until JS animates it. */
+  transform:
+    translate3d(calc(-50% + var(--vx)), calc(-50% + var(--vy) + var(--veil-drift) * 9px), 0)
+    rotate(calc(var(--vrot) + var(--veil-breathe) * 0.22deg))
+    scale(calc(var(--vscale) + var(--veil-breathe) * 0.012));
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.veil__glow {
+  position: absolute;
+  inset: -55% -60%;
+  /* BROAD, diffuse cobalt bloom behind the ribbon — ambient light, never a discrete blob.
+     Lives inside .veil so it tracks the veil's position/rotation through the scroll. */
+  background:
+    radial-gradient(78% 82% at 52% 48%, rgba(28,52,120,0.13) 0%, rgba(16,32,78,0.05) 56%, transparent 82%);
+  /* --vglow is already lerped per-frame by JS; layer a slow cobalt breathe on top.
+     Kept very faint + very broad so it reads as ambient light, never a discrete blob —
+     the main cobalt bloom comes from .atmos__navy at frame scale. */
+  opacity: calc(var(--vglow) * (0.55 + (var(--glow-pulse) + 1) * 0.05));
+  filter: blur(95px);
+  transform: translate3d(calc(var(--veil-drift) * -8px), calc(var(--veil-breathe) * 7px), 0)
+             scale(calc(1 + (var(--glow-pulse) + 1) * 0.03));
+  will-change: transform, opacity;
+}
+.veil__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  /* whole-ribbon darkening for the Pain phase */
+  opacity: calc(1 - var(--vdark) * 0.22);
+}
+/* Ribbon layers — all share one centerline, offset to fake material depth. */
+.rb {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+/* subtle WHITE light catching the satin on one part of the ribbon (upper bend); --vglow +
+   glow-pulse keep it gently breathing so the light feels alive, never a flat painted blob */
+.rb--glow {
+  stroke: url(#ribbonGlowGrad);
+  filter: url(#ribbonGlow);
+  mix-blend-mode: screen;
+  opacity: calc(var(--vglow) * (0.16 + (var(--glow-pulse) + 1) * 0.03) - var(--vdark) * 0.3);
+}
+.rb--shadow { stroke: #000; opacity: 0.5; filter: url(#ribbonBlur); }
+/* underside thickness — neutral-dark (NOT blue) so it never reads as a light line on the edge */
+.rb--under  { stroke: #070910; }
+.rb--body   { stroke: url(#ribbonBody); }
+/* satin sheen band removed — it was reading as a hard light line down the lit edge */
+.rb--sheen  { display: none; }
+/* blue rim line removed — the ribbon's edge is now defined by the white light + shadow only */
+.rb--rim    { display: none; }
+/* a soft bright glint that slowly travels the lit edge — "light on satin".
+   pathLength=1000 makes the dash maths predictable regardless of real path length. */
+/* travelling glint removed — it drew a moving light line along the edge */
+.rb--spec { display: none; }
+@keyframes veilSweep { to { stroke-dashoffset: 95; } }
+
+/* ---- The 5 matte cards ---- */
+.cards {
+  position: absolute;
+  inset: 0;
+}
+.card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(140px, 12vw, 188px);
+  height: clamp(192px, 16.4vw, 256px);
+  margin: -8.9vw 0 0 -6.5vw;
+  border-radius: 4px;                          /* sharper corners */
+  /* sharp matte slip: near-black with a faint cool lift only in the top-left corner */
+  background:
+    linear-gradient(154deg, rgba(26,38,68,0.99) 0%, rgba(14,18,27,0.994) 46%, rgba(8,9,12,0.997) 100%);
+  border: 1px solid rgba(112,132,180,0.12);
+  box-shadow:
+    0 8px 18px -5px rgba(0,0,0,0.74),          /* tight contact shadow on the ribbon */
+    0 48px 84px -28px rgba(0,0,0,0.86),        /* soft cast shadow */
+    inset 0 1px 0 rgba(150,178,240,0.09),      /* faint top rim light */
+    inset 0 -22px 36px -26px rgba(0,0,0,0.68);/* underside */
+  /* JS drivers:
+       --cdim    0..1 dark-overlay strength (recede a card without going glassy)
+       --cmode   0 = embedded (vertical "REELS / 01" spine) → 1 = detached (top bar label)
+       --cdetail 0..1 the BIG detail block ("12–16 REELS" + sub) — PEAKED on the active card
+       --cstate  0..1 per-section supporting state text (diagnosis/pain/system) */
+  --cdim: 0; --cmode: 0; --cdetail: 0; --cstate: 0;
+  opacity: 1;
+  will-change: transform, opacity;
+  overflow: hidden;
+}
+/* dimming overlay */
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(6,8,14,0.72);
+  opacity: var(--cdim);
+  pointer-events: none;
+}
+/* top header: two tiny meta "text" bars over a thin divider line — the editorial content-slip
+   header from the reference. Fades out as the card detaches into the deliverables detail view. */
+.card::before {
+  content: "";
+  position: absolute;
+  top: 1.25rem;
+  left: 0.9rem;
+  right: 0.9rem;
+  height: 26px;
+  background:
+    linear-gradient(rgba(184,200,232,0.70), rgba(184,200,232,0.70)) 0 3px  / 48% 2px no-repeat,
+    linear-gradient(rgba(140,156,192,0.50), rgba(140,156,192,0.50)) 0 11px / 33% 2px no-repeat;
+  border-bottom: 1px solid rgba(150,164,196,0.28);
+  opacity: calc((1 - var(--cmode)) * 0.9);
+  z-index: 2;
+  pointer-events: none;
+}
+/* per-section supporting state text (diagnosis/pain/system) — cross-fades via --cstate so
+   the cards evolve through the story instead of repeating one dead label */
+.card__state {
+  position: absolute;
+  bottom: 0.9rem;
+  left: 0.9rem;
+  right: 0.9rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  line-height: 1.35;
+  text-transform: uppercase;
+  color: rgba(206,217,240,0.92);
+  opacity: calc(var(--cstate) * (1 - var(--cmode)));
+  transition: opacity 0.3s var(--ease);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  z-index: 2;
+  pointer-events: none;
+}
+.card__tab {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.9rem;
+  width: 18px;
+  height: 4px;
+  border-radius: 0;                            /* sharp */
+  background: linear-gradient(90deg, var(--cobalt-lit), var(--cobalt));
+  box-shadow: 0 0 4px rgba(79,116,200,0.3);
+  z-index: 3;
+}
+/* tiny footer meta labels (decorative bars in columns) — the small print at the bottom of the
+   reference cards. Hidden when the per-section state text shows or the card detaches. */
+.card__foot {
+  position: absolute;
+  left: 0.9rem;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  height: 13px;
+  background:
+    linear-gradient(rgba(150,166,200,0.34), rgba(150,166,200,0.34)) 0%   0    / 16% 2px no-repeat,
+    linear-gradient(rgba(150,166,200,0.30), rgba(150,166,200,0.30)) 50%  0    / 13% 2px no-repeat,
+    linear-gradient(rgba(150,166,200,0.28), rgba(150,166,200,0.28)) 100% 0    / 15% 2px no-repeat,
+    linear-gradient(rgba(118,134,168,0.24), rgba(118,134,168,0.24)) 0%   7px  / 11% 2px no-repeat,
+    linear-gradient(rgba(118,134,168,0.22), rgba(118,134,168,0.22)) 50%  7px  / 9%  2px no-repeat,
+    linear-gradient(rgba(118,134,168,0.20), rgba(118,134,168,0.20)) 100% 7px  / 10% 2px no-repeat;
+  opacity: calc((1 - var(--cmode)) * (1 - var(--cstate)) * 0.9);
+  z-index: 2;
+  pointer-events: none;
+}
+/* small light square chip on the right, level with the title (reference detail) */
+.card__chip {
+  position: absolute;
+  right: 0.9rem;
+  top: 33%;
+  width: 10px;
+  height: 10px;
+  border-radius: 0;                            /* sharp */
+  background: rgba(214,222,240,0.82);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+  opacity: calc((1 - var(--cmode)) * 0.85);
+  z-index: 3;
+}
+
+/* EMBEDDED MODE — HORIZONTAL title block, just under the header divider and left-aligned,
+   exactly like the reference cards: big display title with the "/ 0N" index dropped beneath it.
+   The card's own tilt lays this title diagonally on the ribbon. Crisp + sharp (no soft glow). */
+.card__spine {
+  position: absolute;
+  left: 0.9rem;
+  right: 0.9rem;
+  top: 38%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: row;        /* inline: "REELS / 01" on one line, like the reference */
+  align-items: baseline;
+  gap: 0.45rem;
+  line-height: 0.9;
+  white-space: nowrap;
+  opacity: calc(1 - var(--cmode));
+  z-index: 2;
+}
+.card__sp-label {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(0.98rem, 1.36vw, 1.42rem);
+  letter-spacing: 0.012em;
+  color: var(--off-white);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);     /* crisp — sits on the slip, no halo */
+}
+.card__sp-num {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 400;
+  font-size: clamp(0.74rem, 0.95vw, 0.98rem);
+  letter-spacing: 0.05em;
+  color: rgba(210,216,230,0.6);
+}
+
+/* DETACHED MODE — horizontal top bar + big detail, shown only as cards detach */
+.card__bar {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.9rem;
+  right: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid rgba(138,138,146,0.2);
+  /* shown on ALL detached (stack) cards so each is identifiable, but dimmed on the
+     neighbours so only the active card reads strongly */
+  opacity: calc(var(--cmode) * (1 - var(--cdim) * 0.55));
+  z-index: 2;
+}
+.card__bar-label {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--off-white);
+}
+.card__bar-num { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; color: var(--steel); }
+
+.card__detail {
+  position: absolute;
+  left: 0.9rem;
+  right: 0.9rem;
+  top: 2.9rem;
+  opacity: var(--cdetail);
+  transform: translateY(calc((1 - var(--cdetail)) * 10px));
+  pointer-events: none;
+  z-index: 2;
+}
+.card__big {
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 2.2vw, 2.0rem);
+  line-height: 0.9;
+  letter-spacing: 0.005em;
+  color: var(--off-white);
+}
+.card__sub {
+  margin-top: 0.75rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  color: var(--steel);
+  border-top: 1px solid rgba(138,138,146,0.18);
+  padding-top: 0.55rem;
+}
+
+/* ---- Deliverables connector: active card -> veil origin ---- */
+.vlink {
+  position: absolute;
+  left: 0; top: 0;
+  height: 1px;
+  width: 0;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(169,194,242,0.0) 0%, rgba(120,150,220,0.55) 18%, rgba(120,150,220,0.12) 100%);
+  opacity: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.vlink::before {
+  content: "";
+  position: absolute;
+  left: -3px; top: -2px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--cobalt-ice);
+  box-shadow: 0 0 8px rgba(169,194,242,0.9);
+}
+
+/* ---- Diagnosis connectors: row -> card on the veil (drawn left-to-right, node at card) ---- */
+.dlink {
+  position: absolute;
+  left: 0; top: 0;
+  height: 1px;
+  width: 0;
+  transform-origin: left center;
+  /* fade in from the row end, brighten toward the card — a clean audit trace, not a hard line */
+  background: linear-gradient(90deg, rgba(120,150,220,0) 0%, rgba(140,168,228,0.32) 55%, rgba(169,194,242,0.55) 100%);
+  opacity: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.dlink::after {
+  content: "";
+  position: absolute;
+  right: -1.5px; top: -1.5px;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: var(--cobalt-ice);
+  box-shadow: 0 0 5px rgba(169,194,242,0.8);
+}
+
+/* ---- Vignette + grain ---- */
+/* Vignette removed per reference-lock brief — depth comes from haze + bloom + tonal
+   layering, not an edge-darkening overlay. Kept in the DOM but visually disabled. */
+.vignette { display: none; }
+.grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.05;
+  mix-blend-mode: soft-light; /* sits into the surface instead of dirtying it */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 7s steps(6) infinite;
+  pointer-events: none;
+}
+@keyframes grain {
+  0%,100% { transform: translate(0,0); }
+  20% { transform: translate(-4%, 3%); }
+  40% { transform: translate(3%, -2%); }
+  60% { transform: translate(-2%, 4%); }
+  80% { transform: translate(4%, -3%); }
+}
+
+/* =================================================================
+   HEADER (wordmark only)
+   ================================================================= */
+.brand {
+  position: fixed;
+  top: clamp(1.1rem, 2.4vh, 1.8rem);
+  left: 0;
+  width: 100%;
+  z-index: 50;
+  text-align: center;
+  pointer-events: none;
+}
+.brand__mark {
+  font-family: var(--font-mark);
+  font-size: clamp(1rem, 1.5vw, 1.35rem);
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: var(--off-white);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
+}
+body:not(.is-loading) .brand__mark { opacity: 0.92; transform: translateY(0); }
+
+/* =================================================================
+   CONTENT + SECTIONS
+   ================================================================= */
+.content { position: relative; z-index: 2; }
+
+.section { position: relative; }
+.section__inner {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--pad-x);
+  /* Reveal drivers written by JS:
+       --rv  enter factor 0..1 (rises in, then holds at 1 the whole pinned phase)
+       --gx  ghost/exit factor 0..1 (only climbs as the section unpins)
+       --pp  pinned progress 0..1 (advances during the hold — drives list staggers) */
+  --rv: 0; --gx: 0; --pp: 0;
+  --in:  var(--rv);                                        /* meta + primary, with the rise */
+  --in2: clamp(0, calc((var(--rv) - 0.18) / 0.82), 1);    /* lede / secondary, a beat later */
+  --in3: clamp(0, calc((var(--rv) - 0.32) / 0.68), 1);    /* tertiary */
+  --out: var(--gx);
+}
+
+/* Section scroll lengths — longer sections = longer holds, no rushed slides. */
+.section--hero         { height: 200svh; }
+.section--diagnosis    { height: 240svh; }
+.section--pain         { height: 310svh; }
+.section--system       { height: 260svh; }
+.section--deliverables { min-height: 450svh; }
+.section--proof        { height: 240svh; }
+.section--cta          { height: 220svh; }
+
+.copy { max-width: 54ch; width: 100%; }
+/* Hero headline gets its own column to the left of the (now wider) veil, with breathing room
+   so each line fits like the reference. */
+.section--hero .copy { max-width: min(640px, 47vw); }
+
+/* =================================================================
+   TYPOGRAPHY — editorial cut reveal
+   ================================================================= */
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 0.94;
+  letter-spacing: 0.004em;
+  color: var(--off-white);
+}
+.display--hero { font-size: clamp(2.2rem, 4.35vw, 4.5rem); }
+.display:not(.display--hero) { font-size: clamp(1.85rem, 4.1vw, 3.9rem); }
+
+/* each headline line is a horizontal mask that opens as the reveal passes */
+.line {
+  display: block;
+  overflow: hidden;
+  position: relative;
+}
+.line__ink {
+  display: inline-block;
+  position: relative;
+  /* Editorial cut reveal: opens left -> right via clip, sharpens via blur,
+     slight upward + horizontal-compression settle. --r staggers per line. */
+  --r: var(--in);
+  clip-path: inset(0 calc((1 - var(--r)) * 102%) -0.2em 0);
+  transform: translate3d(calc((1 - var(--r)) * -20px), calc((1 - var(--r)) * 0.5em), 0)
+             scaleX(calc(0.985 + var(--r) * 0.015));
+  transform-origin: left center;
+  filter: blur(calc((1 - var(--r)) * 6px));
+  opacity: calc(0.18 + var(--r) * 0.82);
+}
+.line:nth-child(2) .line__ink { --r: var(--in2); }
+.line:nth-child(3) .line__ink { --r: var(--in3); }
+.line:nth-child(4) .line__ink { --r: clamp(0, calc((var(--rv) - 0.46) / 0.54), 1); }
+
+/* subtle off-white/cobalt light wipe that travels across the headline during reveal */
+.line__ink::after {
+  content: "";
+  position: absolute;
+  inset: 0 -8% 0 0;
+  background: linear-gradient(100deg, transparent 38%, rgba(200,216,255,0.42) 50%, transparent 62%);
+  transform: translateX(calc(-110% + var(--r) * 220%));
+  opacity: calc(var(--r) * (1 - var(--r)) * 3.4);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* key accent word lands slightly later + tinted cobalt */
+.accent {
+  font-style: normal;
+  color: var(--cobalt-ice);
+  --al: clamp(0, calc((var(--rv) - 0.40) / 0.50), 1);
+  opacity: calc(0.25 + var(--al) * 0.75);
+  filter: blur(calc((1 - var(--al)) * 5px));
+}
+.accent--dim { color: var(--steel); }
+
+/* ghost-out previous section text — fades only to ~10%, drifts up, never fully vanishes */
+.copy {
+  opacity: calc(1 - var(--out) * 0.9);
+  filter: blur(calc(var(--out) * 4px));
+  transform: translate3d(0, calc(var(--out) * -22px), 0);
+  will-change: opacity, transform;
+}
+
+/* HERO is the landing view (scroll 0), so it reveals on load, not on scroll.
+   It still ghosts out via .copy --out as you scroll away. */
+.section--hero .line__ink {
+  clip-path: inset(0 102% -0.2em 0);
+  transform: translateY(0.5em);
+  filter: blur(7px);
+  opacity: 0.2;
+  transition: clip-path 0.95s var(--ease), transform 0.95s var(--ease),
+              filter 0.95s var(--ease), opacity 0.95s var(--ease);
+}
+.section--hero .accent { opacity: 0.2; filter: blur(5px); transition: opacity 0.8s var(--ease), filter 0.8s var(--ease); }
+.section--hero .lede   { opacity: 0; transform: translateY(14px); transition: opacity 0.9s var(--ease), transform 0.9s var(--ease); }
+
+body:not(.is-loading) .section--hero .line__ink {
+  clip-path: inset(0 0 -0.2em 0); transform: translateY(0); filter: blur(0); opacity: 1;
+}
+body:not(.is-loading) .section--hero .line:nth-child(2) .line__ink { transition-delay: 0.12s; }
+body:not(.is-loading) .section--hero .line:nth-child(3) .line__ink { transition-delay: 0.24s; }
+body:not(.is-loading) .section--hero .accent { opacity: 1; filter: blur(0); transition-delay: 0.42s; }
+body:not(.is-loading) .section--hero .lede   { opacity: 1; transform: translateY(0); transition-delay: 0.55s; }
+
+.lede {
+  margin-top: clamp(1.2rem, 2.4vh, 2rem);
+  max-width: 42ch;
+  font-size: clamp(1rem, 1.35vw, 1.22rem);
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--steel);
+  opacity: var(--in3);
+  transform: translateY(calc((1 - var(--in3)) * 14px));
+}
+
+/* metadata row */
+.meta {
+  display: flex;
+  gap: clamp(1.2rem, 3vw, 3rem);
+  margin-bottom: clamp(1.1rem, 2.4vh, 1.8rem);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--steel-dim);
+  opacity: var(--in);
+  transform: translateY(calc((1 - var(--in)) * 10px));
+}
+.meta__idx { color: var(--cobalt-ice); }
+.meta::before {
+  content: "";
+  position: absolute;
+  margin-top: -0.55rem;
+  width: clamp(2rem, 5vw, 4rem);
+  height: 1px;
+  background: linear-gradient(90deg, var(--cobalt-lit), transparent);
+  transform: translateY(-1.1rem) scaleX(var(--in));
+  transform-origin: left;
+  opacity: 0.6;
+}
+
+/* =================================================================
+   DIAGNOSIS — audit rows
+   ================================================================= */
+.audit {
+  list-style: none;
+  margin-top: clamp(1rem, 2.2vh, 1.7rem);
+  max-width: 40ch;
+}
+.audit__row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid rgba(138,138,146,0.14);
+  /* staggered reveal during the hold (pinned progress), keyed by --d, ghosts on exit */
+  --rp: clamp(0, calc((var(--pp) - (0.10 + var(--d) * 0.13)) / 0.14), 1);
+  opacity: calc(var(--rp) * (1 - var(--gx) * 0.85));
+  transform: translateX(calc((1 - var(--rp)) * -18px));
+}
+.audit__row:last-child { border-bottom: 1px solid rgba(138,138,146,0.14); }
+.audit__id { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; color: var(--cobalt-ice); }
+.audit__name {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: clamp(0.86rem, 1.15vw, 1.05rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--off-white);
+}
+.audit__line { height: 1px; background: repeating-linear-gradient(90deg, rgba(138,138,146,0.3) 0 4px, transparent 4px 9px); transform: scaleX(var(--rp)); transform-origin: left; }
+.audit__state {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--steel);
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(138,138,146,0.25);
+  border-radius: 2px;
+}
+.audit__state[data-state] { color: #cdb98f; border-color: rgba(205,185,143,0.3); }
+.audit__state[data-state="missing"] { color: #c98f8f; border-color: rgba(201,143,143,0.32); }
+
+/* =================================================================
+   PAIN — signals
+   ================================================================= */
+.signals {
+  list-style: none;
+  margin-top: clamp(1rem, 2.2vh, 1.7rem);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem clamp(1.5rem, 4vw, 3.5rem);
+  max-width: 46ch;
+}
+.signal {
+  padding: 1rem 0;
+  border-top: 1px solid rgba(138,138,146,0.14);
+  /* tighter stagger + higher floor so signals 03 / 04 reveal sooner and never sink into
+     darkness during the pinned hold */
+  --rp: clamp(0, calc((var(--pp) - (0.10 + var(--d) * 0.085)) / 0.14), 1);
+  opacity: calc((0.34 + var(--rp) * 0.66) * (1 - var(--gx) * 0.85));
+  transform: translateY(calc((1 - var(--rp)) * 14px));
+}
+.signal__id {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--steel-dim);
+  margin-bottom: 0.35rem;
+}
+.signal__text {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: clamp(0.92rem, 1.25vw, 1.12rem);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--off-white);
+}
+
+/* =================================================================
+   SYSTEM — numbered list
+   ================================================================= */
+.system-list {
+  list-style: none;
+  margin-top: clamp(1rem, 2.2vh, 1.7rem);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1.2rem, 2.6vh, 2rem) clamp(1.5rem, 4vw, 3.5rem);
+  max-width: 50ch;
+}
+.sys {
+  display: flex;
+  gap: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(138,138,146,0.16);
+  --rp: clamp(0, calc((var(--pp) - (0.10 + var(--d) * 0.085)) / 0.14), 1);
+  opacity: calc((0.3 + var(--rp) * 0.7) * (1 - var(--gx) * 0.85));
+  transform: translateY(calc((1 - var(--rp)) * 16px));
+}
+.sys__n {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--cobalt-ice);
+  line-height: 1;
+}
+.sys__t {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: clamp(0.95rem, 1.25vw, 1.15rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--off-white);
+}
+.sys__d {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.88rem;
+  color: var(--steel);
+}
+
+/* =================================================================
+   DELIVERABLES — ticker
+   ================================================================= */
+.copy--deliverables { position: relative; }
+.ticker {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: clamp(1.4rem, 3vh, 2.4rem);
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  color: var(--steel-dim);
+  opacity: var(--in2);
+}
+.ticker__cur { color: var(--cobalt-ice); }
+.ticker__sep { color: var(--steel-dim); }
+.ticker__tot { color: var(--steel-dim); }
+
+/* =================================================================
+   PROOF — rotating quotes
+   ================================================================= */
+.copy--proof { max-width: 60ch; }
+/* Single fixed quote: flows in normal layout (no absolute inset) so it can never be clipped
+   at the top-left during the scroll-in. It simply holds while the section is pinned. */
+.quotes { position: relative; }
+.quote {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  pointer-events: none;
+}
+.quote__text {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: clamp(1.7rem, 4vw, 3.6rem);
+  line-height: 1.04;
+  letter-spacing: 0.005em;
+  color: var(--off-white);
+}
+.quote__by { margin-top: clamp(1.4rem, 3vh, 2.2rem); display: flex; flex-direction: column; gap: 0.35rem; }
+.quote__role {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cobalt-ice);
+}
+.quote__sub { font-size: 0.92rem; color: var(--steel); letter-spacing: 0.02em; }
+
+/* =================================================================
+   FINAL CTA
+   ================================================================= */
+.section--cta .section__inner { justify-content: center; text-align: center; }
+/* Final screen settles and HOLDS — never ghost it out. */
+.section--cta .copy { opacity: 1; filter: none; transform: none; }
+.copy--cta { max-width: none; display: flex; flex-direction: column; align-items: center; }
+.cta__mark {
+  font-family: var(--font-mark);
+  font-size: clamp(2.4rem, 9vw, 7rem);
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  color: var(--off-white);
+  opacity: var(--in);
+  transform: translateY(calc((1 - var(--in)) * 18px));
+}
+.cta__line {
+  margin-top: clamp(1rem, 2.4vh, 1.6rem);
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+  font-weight: 500;
+  color: var(--steel);
+  opacity: var(--in2);
+}
+.cta__btn {
+  margin-top: clamp(2rem, 5vh, 3.2rem);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.05rem 2.3rem;
+  border-radius: 3px;
+  background: linear-gradient(120deg, var(--navy), var(--cobalt));
+  border: 1px solid rgba(120,150,220,0.35);
+  color: var(--off-white);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 24px 50px -18px rgba(28,52,120,0.8);
+  opacity: var(--in3);
+  transform: translateY(calc((1 - var(--in3)) * 16px));
+  transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease);
+}
+.cta__btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(169,194,242,0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.7s var(--ease);
+}
+.cta__btn:hover { box-shadow: 0 30px 60px -16px rgba(60,96,196,0.9); transform: translateY(-2px); }
+.cta__btn:hover::before { transform: translateX(120%); }
+.cta__btn-arrow { transition: transform 0.4s var(--ease); }
+.cta__btn:hover .cta__btn-arrow { transform: translateX(5px); }
+.cta__btn:active { transform: translateY(0); box-shadow: 0 16px 36px -16px rgba(60,96,196,0.85); }
+/* visible keyboard focus (accessibility) — a crisp cobalt-ice ring, never removed for mouse */
+.cta__btn:focus-visible {
+  outline: 2px solid var(--cobalt-ice);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 5px rgba(159,182,230,0.22), 0 30px 60px -16px rgba(60,96,196,0.9);
+}
+/* generic focus ring for any other future interactive element */
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--cobalt-ice);
+  outline-offset: 3px;
+}
+.cta__micro {
+  margin-top: clamp(1.4rem, 3vh, 2.2rem);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--steel-dim);
+  opacity: var(--in3);
+}
+
+/* =================================================================
+   LOADER
+   ================================================================= */
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: radial-gradient(70% 60% at 50% 45%, #0c1224 0%, var(--ink-2) 70%);
+  display: grid;
+  place-items: center;
+  transition: opacity 0.9s var(--ease), visibility 0.9s var(--ease);
+}
+body:not(.is-loading) .loader { opacity: 0; visibility: hidden; }
+
+/* On hand-off the loader drifts toward the hero veil (right) while fading, so the
+   line visually becomes the veil that is already rendered on the stage behind it. */
+body:not(.is-loading) .loader__inner { transform: translate3d(7vw, -1vh, 0) scale(1.06); }
+
+.loader__inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4rem;
+  transition: transform 0.9s var(--ease);
+}
+.loader__mark {
+  font-family: var(--font-mark);
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  color: var(--off-white);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: l-mark 0.9s var(--ease) 0.15s forwards;
+}
+.loader__curve { width: min(52vw, 520px); height: auto; overflow: visible; }
+.lc-line {
+  stroke: rgba(176,198,255,0.85);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 760;
+  stroke-dashoffset: 760;
+  filter: drop-shadow(0 0 5px rgba(79,116,200,0.5));
+  animation: l-draw 1.25s var(--ease) 0.45s forwards;
+}
+.lc-dot {
+  fill: var(--cobalt-ice);
+  filter: drop-shadow(0 0 7px rgba(169,194,242,0.95));
+  offset-path: path("M60 140 C 200 80, 400 196, 540 116");
+  offset-rotate: 0deg;
+  offset-distance: 0%;
+  opacity: 0;
+  animation: l-travel 1.2s ease-in-out 0.7s forwards;
+}
+.lc-slip {
+  fill: #161c2c;
+  stroke: rgba(130,160,228,0.22);
+  stroke-width: 1;
+  offset-rotate: auto;
+  opacity: 0;
+  transform: scale(0.6);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: l-slip 0.55s var(--ease) forwards;
+}
+.lc-slip[data-s="0"] { offset-path: path("M60 140 C 200 80, 400 196, 540 116"); offset-distance: 24%; animation-delay: 1.55s; }
+.lc-slip[data-s="1"] { offset-path: path("M60 140 C 200 80, 400 196, 540 116"); offset-distance: 42%; animation-delay: 1.66s; }
+.lc-slip[data-s="2"] { offset-path: path("M60 140 C 200 80, 400 196, 540 116"); offset-distance: 60%; animation-delay: 1.77s; }
+.lc-slip[data-s="3"] { offset-path: path("M60 140 C 200 80, 400 196, 540 116"); offset-distance: 78%; animation-delay: 1.88s; }
+
+@keyframes l-mark { to { opacity: 0.95; transform: translateY(0); } }
+@keyframes l-draw { to { stroke-dashoffset: 0; } }
+@keyframes l-travel { 0% { opacity: 0; offset-distance: 0%; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0.4; offset-distance: 100%; } }
+@keyframes l-slip { to { opacity: 0.92; transform: scale(1); } }
+
+/* Loader fast-path (returning visit) */
+.loader.is-fast .loader__mark { animation-duration: 0.4s; animation-delay: 0s; }
+.loader.is-fast .lc-line { animation-duration: 0.55s; animation-delay: 0.1s; }
+.loader.is-fast .lc-dot, .loader.is-fast .lc-slip { display: none; }
+
+/* =================================================================
+   RESPONSIVE
+   ================================================================= */
+@media (max-width: 900px) {
+  :root { --pad-x: 1.4rem; }
+  /* Veil + cards drop back to a faint atmospheric layer so the copy stays primary
+     and never competes with cards sitting over the text. */
+  .veil { width: 72vw; opacity: 0.42; }
+  .cards { opacity: 0.3; }
+  .copy { max-width: 100%; }
+  .signals, .system-list { grid-template-columns: 1fr; }
+  .display--hero { font-size: clamp(2.4rem, 11vw, 4rem); }
+  .section__inner { align-items: flex-end; padding-bottom: 14vh; }
+  .section--cta .section__inner { align-items: center; padding-bottom: 0; }
+}
+
+@media (max-width: 560px) {
+  .veil { opacity: 0.3; }
+  .cards { opacity: 0.2; }
+  .meta--triple .meta__tag:last-child { display: none; }
+}
+
+/* =================================================================
+   REDUCED MOTION
+   ================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .grain { animation: none; }
+  /* No continuous life: static veil, no sweep, no drifting haze. JS also skips the rAF
+     loop under reduced-motion, so the breathe vars stay 0. */
+  .atmos__haze { animation: none; opacity: 0.6; }
+  .atmos__navy { transform: translate3d(calc(var(--scroll) * -4vw), calc(var(--scroll) * 2vh), 0); }
+  .rb--spec { animation: none; opacity: 0; }
+  .loader__mark, .lc-line, .lc-dot, .lc-slip { animation: none; }
+  .loader__mark { opacity: 0.95; transform: none; }
+  .lc-line { stroke-dashoffset: 0; }
+  .lc-slip { opacity: 0.9; transform: scale(1); }
+  .loader__inner { transition: none; }
+  .line__ink, .accent, .copy, .lede, .meta, .audit__row, .signal, .sys,
+  .cta__mark, .cta__line, .cta__btn, .cta__micro, .ticker {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+  }
+}
