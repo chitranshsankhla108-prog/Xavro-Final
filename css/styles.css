@@ -530,7 +530,6 @@ body:not(.is-loading) .brand__mark { opacity: 0.92; transform: translateY(0); }
 .section--pain         { height: 310svh; }
 .section--system       { height: 260svh; }
 .section--deliverables { min-height: 450svh; }
-.section--proof        { height: 240svh; }
 .section--cta          { height: 220svh; }
 
 .copy { max-width: 54ch; width: 100%; }
@@ -808,39 +807,6 @@ body:not(.is-loading) .section--hero .lede   { opacity: 1; transform: translateY
 .ticker__tot { color: var(--steel-dim); }
 
 /* =================================================================
-   PROOF — rotating quotes
-   ================================================================= */
-.copy--proof { max-width: 60ch; }
-/* Single fixed quote: flows in normal layout (no absolute inset) so it can never be clipped
-   at the top-left during the scroll-in. It simply holds while the section is pinned. */
-.quotes { position: relative; }
-.quote {
-  opacity: 1;
-  transform: none;
-  filter: none;
-  pointer-events: none;
-}
-.quote__text {
-  font-family: var(--font-display);
-  font-weight: 400;
-  text-transform: uppercase;
-  font-size: clamp(1.7rem, 4vw, 3.6rem);
-  line-height: 1.04;
-  letter-spacing: 0.005em;
-  color: var(--off-white);
-}
-.quote__by { margin-top: clamp(1.4rem, 3vh, 2.2rem); display: flex; flex-direction: column; gap: 0.35rem; }
-.quote__role {
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 0.8rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--cobalt-ice);
-}
-.quote__sub { font-size: 0.92rem; color: var(--steel); letter-spacing: 0.02em; }
-
-/* =================================================================
    FINAL CTA
    ================================================================= */
 .section--cta .section__inner { justify-content: center; text-align: center; }
@@ -1026,30 +992,33 @@ body:not(.is-loading) .loader__inner { transform: translate3d(7vw, -1vh, 0) scal
 
 /* =================================================================
    TOUCH / LITE PROFILE  (iPad, iPhone, Android — any coarse pointer)
-   Desktop is untouched. These devices have weak GPUs and tight VRAM, so we strip the
-   per-frame-rasterised paint cost that caused severe scroll lag on physical iPad Safari
-   (BrowserStack/emulators don't reproduce it — it's a real-GPU compositing/memory limit).
-   The JS engine also drops the continuous breathe in LITE mode, so nothing here animates
-   per frame; these layers only repaint while the user is actually scrolling.
+   Desktop is untouched. Strict "compositor-only" pipeline: the JS loop animates ONLY card
+   transform + opacity (see renderLite/applyCardsLite), and here we remove every heavy paint so
+   the GPU has nothing to re-rasterise while scrolling. This eliminates the physical-iPad Safari
+   scroll lag (a real-GPU compositing/VRAM limit that BrowserStack/emulators don't reproduce).
    ================================================================= */
 @media (hover: none), (pointer: coarse) {
-  /* Full-screen soft-light blend over a 4x-viewport surface = the single heaviest mobile
-     composite. Remove it entirely (the grain is a subtle finish, not core to the look). */
+  /* RUTHLESS PAINT REDUCTION — hide the entire 150vh veil layer (the SVG ribbon, the #ribbonBlur
+     filter and the glow all live inside it) and the full-screen soft-light grain blend. The
+     scroll-scrubbed CARDS remain: they ride the same curve math, just without the painted ribbon
+     beneath them. */
+  .veil { display: none; }
   .grain { display: none; }
+  .atmos__haze { filter: none; animation: none; }   /* no moving GPU blur */
+  .vlink, .dlink { display: none; }                 /* JS-positioned connector lines: drop */
 
-  /* A moving blurred layer must re-rasterise its blur every frame it changes. Drop the GPU
-     blurs; the underlying radial gradients are already soft, so the look barely shifts. */
-  .atmos__haze { filter: none; animation: none; }
-  .veil__glow  { filter: none; }
-  /* one fewer SVG filter layer re-rastering as the veil transforms during scroll */
-  .rb--glow    { display: none; }
+  /* CARDS are now the only moving layer: flat (no soft shadow that would re-raster), GPU-promoted,
+     and animated by JS with transform + translate3d + opacity only. A brighter border keeps them
+     readable without the shadow depth. They become the visible hero on mobile. */
+  .cards { opacity: 1; }
+  .card {
+    box-shadow: none;
+    border-color: rgba(140, 162, 210, 0.30);
+    will-change: transform;
+  }
 
-  /* Collapse the 4-layer, 84px-spread moving card shadow (5 cards) to one cheap shadow. */
-  .card { box-shadow: 0 10px 22px -10px rgba(0,0,0,0.78); }
-
-  /* Stop permanently promoting these to compositing layers — too many large GPU layers blows
-     the iPad VRAM budget and triggers Safari's layer eviction / memory throttling. */
-  .copy, .card, .atmos__navy, .atmos__haze, .veil__glow { will-change: auto; }
+  /* nothing else animates per frame -> drop the rest of the compositing promotions (VRAM budget) */
+  .copy, .atmos__navy, .atmos__haze { will-change: auto; }
 }
 
 /* =================================================================

@@ -99,7 +99,7 @@
   var bookBtn = document.getElementById("bookBtn");
 
   /* section phase indices */
-  var IDX = { hero: 0, diagnosis: 1, pain: 2, system: 3, deliverables: 4, proof: 5, cta: 6 };
+  var IDX = { hero: 0, diagnosis: 1, pain: 2, system: 3, deliverables: 4, cta: 5 };
   var LAST = sectionEls.length - 1;
 
   /* ---------- viewport ---------- */
@@ -130,6 +130,7 @@
     starts[sectionEls.length] = starts[LAST] + fulls[LAST]; /* sentinel */
     syncVeilSpace(); /* size the SVG user space to px + rebuild paths/gradients/widths */
     lastSY = -1; /* force a full scroll-dependent recompute next frame after any relayout */
+    lastRenderedY = NaN; /* LITE: force the next frame to re-place cards after a relayout/rotate */
   }
 
   /* ---------- math helpers ---------- */
@@ -147,7 +148,6 @@
     { vx: 16, vy: 0, vrot: 29, vscale: 1.06, vglow: 0.46, vdark: 0.55 }, /* pain: darker, heavier */
     { vx: 16, vy: 0, vrot: 29, vscale: 1.06, vglow: 0.90, vdark: 0.02 }, /* system: clean, calm glow */
     { vx: 18, vy: 0, vrot: 29, vscale: 1.06, vglow: 0.58, vdark: 0.08 }, /* deliverables: behind the stack */
-    { vx: 21, vy: 2, vrot: 29, vscale: 1.00, vglow: 0.34, vdark: 0.42 }, /* proof: recedes a little */
     { vx: 24, vy: 4, vrot: 29, vscale: 0.96, vglow: 0.22, vdark: 0.60 }  /* cta: quiet silhouette */
   ];
 
@@ -162,7 +162,7 @@
   /* Per-section supporting card text (DOM order: REELS, CAROUSELS, CAPTIONS, STRATEGY,
      CALENDAR). The cards keep their identity (the big spine label) but their supporting
      state text evolves through the story — scanned in Diagnosis, pained in Pain, organised
-     in System. Hero/Deliverables/Proof/CTA show no state text (deliverables uses the big
+     in System. Hero/Deliverables/CTA show no state text (deliverables uses the big
      detail view instead). Keyed by phase index (1=diagnosis, 2=pain, 3=system). */
   var CARD_STATE = {
     1: ["Content Perception", "Consistency Signal", "Authority Signal", "Sales Intent", "Brand Positioning"],
@@ -178,7 +178,6 @@
     { op: 0.80, dim: 0.46 }, /* pain: dim but readable */
     { op: 0.96, dim: 0.06 }, /* system: clean */
     { op: 1.00, dim: 0.04 }, /* deliverables (stack overrides) */
-    { op: 0.40, dim: 0.55 }, /* proof: receding */
     { op: 0.20, dim: 0.78 }  /* cta: quiet */
   ];
 
@@ -370,7 +369,7 @@
       for (i = 0; i < 5; i++) out[i] = stack(i, delivP);
       return out;
     }
-    var Aa = APP[k], Ba = APP[Math.min(k + 1, 6)];
+    var Aa = APP[k], Ba = APP[Math.min(k + 1, LAST)];
     for (i = 0; i < 5; i++) {
       var g = embedGeom(i);
       out[i] = { x: g.x, y: g.y, rot: g.rot, sc: g.sc,
@@ -380,8 +379,8 @@
     if (k + 1 === IDX.deliverables) {
       for (i = 0; i < 5; i++) { st = stack(i, 0); st.det = 0; out[i] = lerpCard(out[i], st, t); }
     }
-    /* deliverables -> proof: ease the stack end back onto the ribbon */
-    if (k === IDX.proof) {
+    /* deliverables -> cta: ease the stack end back onto the ribbon */
+    if (k === IDX.cta) {
       for (i = 0; i < 5; i++) { st = stack(i, 1); st.det = 0; out[i] = lerpCard(st, out[i], t); }
     }
     return out;
@@ -461,9 +460,6 @@
     }
   }
 
-  /* Proof is now a single, fixed editorial quote (no rotation) — it simply holds while the
-     section is pinned. Nothing to drive here; the markup keeps it always visible. */
-
   var lastTick = -1;
   function setTicker(n) {
     if (n === lastTick || !ticker) return;
@@ -480,7 +476,7 @@
     for (var i = 0; i < 5; i++) cardEls[i].style.setProperty("--cstate", "0"); /* fade out */
     if (stateTimer) clearTimeout(stateTimer);
     var arr = CARD_STATE[k];
-    if (!arr) return; /* hero / deliverables / proof / cta: no supporting state text */
+    if (!arr) return; /* hero / deliverables / cta: no supporting state text */
     stateTimer = setTimeout(function () {
       for (var j = 0; j < 5; j++) {
         stateEls[j].textContent = arr[j];
@@ -540,7 +536,7 @@
 
       /* veil pose: morph keyframe[k] -> keyframe[k+1]; cache the live transform in `cur`
          so the embedded cards ride exactly on this frame's ribbon. */
-      var A = VEIL[k], B = VEIL[Math.min(k + 1, 6)];
+      var A = VEIL[k], B = VEIL[Math.min(k + 1, LAST)];
       cur.vx = lerp(A.vx, B.vx, mfrac);
       cur.vy = lerp(A.vy, B.vy, mfrac);
       cur.vrot = lerp(A.vrot, B.vrot, mfrac);
@@ -587,6 +583,100 @@
     applyCards(formation(0, 0, 0));
   }
 
+  /* =================================================================
+     LITE (touch / tablet) — COMPOSITOR-ONLY CARD PIPELINE
+     Client requirement: keep the scroll-scrubbed card animation on iPad while killing WebKit
+     scroll lag. So on LITE we run a stripped loop that writes ONLY each card's transform +
+     opacity per frame — NO CSS custom-var writes (--rv/--gx/--cdim/...), so nothing triggers
+     main-thread layout or paint while scrolling. Text reveals + card content modes are set to
+     their FINAL static values once (like reduced-motion). The veil (150vh SVG + #ribbonBlur +
+     glow) is display:none in CSS; cards are flat + GPU-promoted (will-change:transform). The
+     veil POSE is still computed here (cheap math) purely to place the cards on the same curve. */
+  var cardVis = [1, 1, 1, 1, 1];     /* IntersectionObserver: is card i within the buffered viewport */
+  var cardParked = [0, 0, 0, 0, 0];  /* 1 = currently culled (not being written) */
+
+  /* one-time: reveal all text + lock each card to its embedded look. After this the only thing
+     that changes per frame is card transform/opacity. */
+  function initLiteStatic() {
+    for (var i = 0; i < inners.length; i++) {
+      var si = inners[i].style;
+      si.setProperty("--rv", "1"); si.setProperty("--gx", "0"); si.setProperty("--pp", "1");
+    }
+    for (var c = 0; c < cardEls.length; c++) {
+      var cc = cardEls[c].style;
+      cc.setProperty("--cmode", "0"); cc.setProperty("--cdetail", "0");
+      cc.setProperty("--cstate", "0"); cc.setProperty("--cdim", "0");
+    }
+  }
+
+  /* CULLING. The cheap geometry math runs every frame for every card (it MUST — that's how we
+     know when a card should reappear); we only skip the costly transform/opacity WRITE for cards
+     that are invisible (op~0) or scrolled outside the viewport (IntersectionObserver). A periodic
+     resync re-writes every card so a culled one can never freeze off-screen. (Pausing the math on
+     an IO callback alone would deadlock here: a frozen card stops moving, so its own IO never
+     fires to un-freeze it — hence math-always, write-sometimes.) */
+  function setupCardCulling() {
+    if (!("IntersectionObserver" in window)) return; /* fallback: cardVis stays 1; op-cull still applies */
+    var io = new IntersectionObserver(function (entries) {
+      for (var j = 0; j < entries.length; j++) {
+        var idx = cardEls.indexOf(entries[j].target);
+        if (idx >= 0) cardVis[idx] = entries[j].isIntersecting ? 1 : 0;
+      }
+    }, { root: null, rootMargin: "30%", threshold: 0 });
+    for (var i = 0; i < cardEls.length; i++) io.observe(cardEls[i]);
+  }
+
+  /* is card i's freshly-computed target outside the viewport box? (s.x/s.y are offsets from the
+     viewport centre). This is the ANTI-FREEZE guard: a card is only culled when BOTH the
+     IntersectionObserver and the live geometry agree it's gone, and it resumes the instant the
+     geometry re-enters — so a parked card can never get stuck off-screen waiting on its own IO. */
+  function offViewport(s) {
+    return Math.abs(s.x) > vw * 0.5 + 220 || Math.abs(s.y) > vh * 0.5 + 260;
+  }
+  function applyCardsLite(states) {
+    for (var i = 0; i < 5; i++) {
+      var s = states[i], el = cardEls[i];
+      /* CULL the costly write for cards we can't see: invisible (op~0), or scrolled out of the
+         viewport per IntersectionObserver AND confirmed off by current geometry. */
+      var hidden = s.op <= 0.012 || (cardVis[i] === 0 && offViewport(s));
+      if (hidden) {
+        if (cardParked[i] !== 1) { el.style.opacity = "0"; cardParked[i] = 1; }
+        continue;
+      }
+      cardParked[i] = 0;
+      el.style.transform = "translate3d(" + s.x.toFixed(1) + "px," + s.y.toFixed(1) + "px,0) rotate(" + s.rot.toFixed(2) + "deg) scale(" + s.sc.toFixed(3) + ")";
+      el.style.opacity = s.op.toFixed(3);
+      el.style.zIndex = s.z;
+    }
+  }
+
+  /* compositor-only render: phase + veil-pose MATH only (veil is hidden), then cards. No section
+     vars, no veil styles, no connectors — those are set once / hidden for LITE. */
+  function renderLite(sy) {
+    var k = 0, s;
+    for (s = 0; s < sectionEls.length; s++) {
+      if (sy >= starts[s] && sy < starts[s + 1]) { k = s; break; }
+      if (s === LAST) k = LAST;
+    }
+    if (sy < starts[0]) k = 0;
+    var span = (starts[k + 1] || (starts[k] + fulls[k])) - starts[k];
+    var frac = clamp((sy - starts[k]) / span, 0, 1);
+    var mfrac = smooth(clamp((frac - 0.20) / 0.80, 0, 1));
+
+    var A = VEIL[k], B = VEIL[Math.min(k + 1, LAST)];
+    cur.vx = lerp(A.vx, B.vx, mfrac);
+    cur.vy = lerp(A.vy, B.vy, mfrac);
+    cur.vrot = lerp(A.vrot, B.vrot, mfrac);
+    cur.vscale = lerp(A.vscale, B.vscale, mfrac);
+
+    gRoll = clamp(sy / (starts[IDX.deliverables] || 1), 0, 1) * 1.15;
+    cdelivP = clamp(clamp((sy - starts[IDX.deliverables]) / ranges[IDX.deliverables], 0, 1) / 0.85, 0, 1);
+    ck = k; cmfrac = mfrac;
+    if (k === IDX.deliverables) setTicker(Math.round(cdelivP * 4) + 1);
+
+    applyCardsLite(formation(ck, cmfrac, cdelivP));
+  }
+
   /* ---------- scroll + continuous rAF loop ---------- */
   /* Real scroll feeds targetY; currentY eases toward it for a premium heavy scroll, and
      performance.now() drives the breathe/drift/glow sines so the stage is alive even when
@@ -624,10 +714,10 @@
     if (!moving) currentY = targetY;
 
     if (LITE) {
-      /* touch: no continuous breathe (vars stay 0 -> no per-frame veil-subtree invalidation,
-         no per-frame blur re-raster). Only render while the scroll is moving, plus one final
-         settle frame, so an idle iPad does essentially zero GPU work. */
-      if (moving || currentY !== lastRenderedY) { render(currentY); lastRenderedY = currentY; }
+      /* touch: compositor-only pipeline (transform/opacity on cards only). No continuous breathe,
+         and we only spend a frame while the scroll is actually moving (plus one settle frame), so
+         an idle iPad does ~zero work. */
+      if (moving || currentY !== lastRenderedY) { renderLite(currentY); lastRenderedY = currentY; }
     } else {
       var t = performance.now() * 0.001;
       gBreathe = Math.sin(t * 0.62);          /* slow scale/rotate pulse */
@@ -659,6 +749,8 @@
     /* fonts / late layout shifts: just re-measure; the loop renders the next frame */
     window.addEventListener("load", measure);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+
+    if (LITE) { initLiteStatic(); setupCardCulling(); }
 
     startLoop();
   }
@@ -704,4 +796,49 @@
   if (document.readyState === "complete" || document.readyState === "interactive") runLoader();
   else document.addEventListener("DOMContentLoaded", runLoader);
 
+})();
+
+/* =================================================================
+   ON-DEVICE PERFORMANCE DIAGNOSTIC  (opt-in via ?debug=1)
+   For real-device debugging we cannot do from a desktop: open the live URL with ?debug=1
+   on the iPad, scroll, and read the overlay. It tells us the two things we can't otherwise
+   know — whether the LITE profile actually activated on THAT device, and the live/min FPS
+   while scrolling. Self-origin (CSP-safe), gated, and does negligible work. No effect for
+   normal visitors. Remove later or leave it — it never runs without the query flag.
+   ================================================================= */
+(function () {
+  "use strict";
+  if (location.search.indexOf("debug=1") === -1) return;
+  function start() {
+    var box = document.createElement("div");
+    box.setAttribute("aria-hidden", "true");
+    box.style.cssText = "position:fixed;top:8px;left:8px;z-index:99999;font:12px/1.5 monospace;" +
+      "color:#9fe6b0;background:rgba(0,0,0,0.85);padding:8px 10px;border:1px solid #3a6;" +
+      "border-radius:6px;pointer-events:none;white-space:pre;max-width:70vw;";
+    document.body.appendChild(box);
+    var mq = function (q) { return window.matchMedia(q).matches; };
+    var frames = 0, fps = 0, last = performance.now(), lo = 999;
+    function tick(now) {
+      frames++;
+      if (now - last >= 500) {
+        fps = Math.round(frames * 1000 / (now - last));
+        if (fps < lo) lo = fps; /* min FPS captures the worst scroll dip */
+        frames = 0; last = now;
+        box.textContent =
+          "XAVRO debug\n" +
+          "LITE: " + (window.__XAVRO_LITE ? "ON ✓" : "OFF ✗") + "\n" +
+          "FPS: " + fps + "   min: " + lo + "\n" +
+          "DPR: " + (window.devicePixelRatio || 1) + "\n" +
+          "viewport: " + window.innerWidth + " x " + window.innerHeight + "\n" +
+          "pointer: " + (mq("(pointer: coarse)") ? "coarse" : "fine") +
+          "   hover: " + (mq("(hover: none)") ? "none" : "hover") + "\n" +
+          "reduced-motion: " + (mq("(prefers-reduced-motion: reduce)") ? "ON" : "off") + "\n" +
+          "touchPoints: " + (navigator.maxTouchPoints || 0) + "   platform: " + navigator.platform;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  if (document.body) start();
+  else document.addEventListener("DOMContentLoaded", start);
 })();
