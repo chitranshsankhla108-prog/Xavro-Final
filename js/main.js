@@ -53,6 +53,20 @@
 
   var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* LITE = touch-primary device (iPad / iPhone / Android). On these, the GPU is far weaker
+     than the desktop this was tuned on, and the continuous breathe loop re-rasterises blurred /
+     blended / soft-shadowed full-screen layers every frame -> severe scroll lag (the iPad bug).
+     In LITE mode we drop the continuous breathe and only spend frames WHILE the user is actually
+     scrolling. The condition mirrors the CSS `@media (hover:none),(pointer:coarse)` block EXACTLY
+     so JS and CSS can never disagree (a touch-primary device = coarse pointer / no hover). We
+     deliberately do NOT use maxTouchPoints, which would mis-flag touch-screen laptops (real
+     desktops with a mouse) as mobile. */
+  var LITE = !REDUCED && (
+    window.matchMedia("(hover: none)").matches ||
+    window.matchMedia("(pointer: coarse)").matches
+  );
+  window.__XAVRO_LITE = LITE; /* exposed for QA introspection */
+
   /* =====================================================================
      CTA TARGET — the site's only conversion action.
      ⚠️ BEFORE LAUNCH: set this to your real booking link, e.g.
@@ -582,22 +596,45 @@
   var running = false;
 
   function onScroll() { targetY = window.pageYOffset; }
-  function onResize() { measure(); }
 
+  /* Debounced resize. iOS Safari fires `resize` when its address/tab bar shows/hides DURING
+     scroll; running the full measure() (7x getBoundingClientRect + offsetHeight + an SVG path
+     rebuild) on the scroll thread is a major iPad jank source. We coalesce bursts and IGNORE
+     height-only changes under ~120px (the toolbar), only re-measuring on a real width change or
+     a large height swing (orientation). */
+  var resizeT = null, lastW = window.innerWidth, lastH = window.innerHeight;
+  function onResize() {
+    if (resizeT) clearTimeout(resizeT);
+    resizeT = setTimeout(function () {
+      var w = window.innerWidth, h = window.innerHeight;
+      if (w === lastW && Math.abs(h - lastH) <= 120) return; /* iOS toolbar — skip */
+      lastW = w; lastH = h;
+      measure();
+    }, 150);
+  }
+
+  var lastRenderedY = NaN; /* LITE: last position we actually rendered, to skip idle frames */
   function frame() {
     if (!running) return;
     /* __XAVRO_INSTANT lets QA/screenshot tooling snap the eased scroll (headless rAF is
        throttled, so the lerp won't settle in a capture window). No effect for real users. */
     var ease = window.__XAVRO_INSTANT ? 1 : 0.085;
     currentY += (targetY - currentY) * ease;
-    if (Math.abs(targetY - currentY) < 0.35) currentY = targetY;
+    var moving = Math.abs(targetY - currentY) >= 0.35;
+    if (!moving) currentY = targetY;
 
-    var t = performance.now() * 0.001;
-    gBreathe = Math.sin(t * 0.62);          /* slow scale/rotate pulse */
-    gDrift   = Math.sin(t * 0.34 + 1.3);    /* slower vertical float */
-    gGlow    = Math.sin(t * 0.50 + 0.6);    /* cobalt glow breathe */
-
-    render(currentY);
+    if (LITE) {
+      /* touch: no continuous breathe (vars stay 0 -> no per-frame veil-subtree invalidation,
+         no per-frame blur re-raster). Only render while the scroll is moving, plus one final
+         settle frame, so an idle iPad does essentially zero GPU work. */
+      if (moving || currentY !== lastRenderedY) { render(currentY); lastRenderedY = currentY; }
+    } else {
+      var t = performance.now() * 0.001;
+      gBreathe = Math.sin(t * 0.62);          /* slow scale/rotate pulse */
+      gDrift   = Math.sin(t * 0.34 + 1.3);    /* slower vertical float */
+      gGlow    = Math.sin(t * 0.50 + 0.6);    /* cobalt glow breathe */
+      render(currentY);
+    }
     requestAnimationFrame(frame);
   }
   function startLoop() { if (!running) { running = true; requestAnimationFrame(frame); } }

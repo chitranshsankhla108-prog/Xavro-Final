@@ -1025,6 +1025,34 @@ body:not(.is-loading) .loader__inner { transform: translate3d(7vw, -1vh, 0) scal
 }
 
 /* =================================================================
+   TOUCH / LITE PROFILE  (iPad, iPhone, Android — any coarse pointer)
+   Desktop is untouched. These devices have weak GPUs and tight VRAM, so we strip the
+   per-frame-rasterised paint cost that caused severe scroll lag on physical iPad Safari
+   (BrowserStack/emulators don't reproduce it — it's a real-GPU compositing/memory limit).
+   The JS engine also drops the continuous breathe in LITE mode, so nothing here animates
+   per frame; these layers only repaint while the user is actually scrolling.
+   ================================================================= */
+@media (hover: none), (pointer: coarse) {
+  /* Full-screen soft-light blend over a 4x-viewport surface = the single heaviest mobile
+     composite. Remove it entirely (the grain is a subtle finish, not core to the look). */
+  .grain { display: none; }
+
+  /* A moving blurred layer must re-rasterise its blur every frame it changes. Drop the GPU
+     blurs; the underlying radial gradients are already soft, so the look barely shifts. */
+  .atmos__haze { filter: none; animation: none; }
+  .veil__glow  { filter: none; }
+  /* one fewer SVG filter layer re-rastering as the veil transforms during scroll */
+  .rb--glow    { display: none; }
+
+  /* Collapse the 4-layer, 84px-spread moving card shadow (5 cards) to one cheap shadow. */
+  .card { box-shadow: 0 10px 22px -10px rgba(0,0,0,0.78); }
+
+  /* Stop permanently promoting these to compositing layers — too many large GPU layers blows
+     the iPad VRAM budget and triggers Safari's layer eviction / memory throttling. */
+  .copy, .card, .atmos__navy, .atmos__haze, .veil__glow { will-change: auto; }
+}
+
+/* =================================================================
    REDUCED MOTION
    ================================================================= */
 @media (prefers-reduced-motion: reduce) {
