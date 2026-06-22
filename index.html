@@ -362,10 +362,9 @@
         <div class="copy copy--cta">
           <span class="cta__mark">XAVRO</span>
           <p class="cta__line">You coach. We handle the content.</p>
-          <!-- LAUNCH BLOCKER: href="#book" is a placeholder and goes nowhere. This is the
-               site's only conversion action — point it at your booking URL (Calendly/Tally)
-               or a mailto: before going live. -->
-          <a class="cta__btn" href="#book" id="bookBtn">
+          <!-- Site's only conversion action. JS (wireCTA) re-applies this href and adds
+               target=_blank + safe rel at runtime from XAVRO_BOOKING_URL in js/main.js. -->
+          <a class="cta__btn" href="https://calendly.com/xavro" id="bookBtn">
             <span class="cta__btn-label">Book a strategy call</span>
             <span class="cta__btn-arrow" aria-hidden="true">→</span>
           </a>

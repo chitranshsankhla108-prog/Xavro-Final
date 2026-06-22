@@ -82,13 +82,10 @@
   window.__XAVRO_SAFARI = SAFARI; /* exposed for QA introspection */
 
   /* =====================================================================
-     CTA TARGET — the site's only conversion action.
-     ⚠️ BEFORE LAUNCH: set this to your real booking link, e.g.
-        "https://calendly.com/xavro/strategy-call"  or  "mailto:hello@xavro.com".
-     Left as "#book" it is a no-op placeholder (button still focus/hover works).
+     CTA TARGET — the site's only conversion action (Calendly booking link).
      An http(s) URL automatically opens in a new tab with safe rel attributes.
      ===================================================================== */
-  var XAVRO_BOOKING_URL = "#book";
+  var XAVRO_BOOKING_URL = "https://calendly.com/xavro";
 
   /* ---------- cached DOM ---------- */
   var body    = document.body;
