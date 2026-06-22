@@ -707,6 +707,26 @@ body:not(.is-loading) .section--hero .lede   { opacity: 1; transform: translateY
 }
 .audit__state[data-state] { color: #cdb98f; border-color: rgba(205,185,143,0.3); }
 .audit__state[data-state="missing"] { color: #c98f8f; border-color: rgba(201,143,143,0.32); }
+/* descriptive sub-line: sits on a full-width second grid row beneath the label/state,
+   inheriting the row's staggered reveal (opacity/transform live on .audit__row). */
+.audit__desc {
+  grid-column: 1 / -1;
+  margin-top: 0.15rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: clamp(0.8rem, 1vw, 0.92rem);
+  line-height: 1.42;
+  letter-spacing: 0.01em;
+  color: var(--steel-dim);
+}
+/* On short viewports (≈1366×768 laptops) the added sub-lines push the centered
+   diagnosis copy past the viewport; compact the rows just enough to keep all four
+   rows + descriptions readable. Tall desktops keep the original spacing. */
+@media (max-height: 820px) {
+  .section--diagnosis .audit { margin-top: 0.8rem; }
+  .section--diagnosis .audit__row { padding: 0.55rem 0; }
+  .section--diagnosis .audit__desc { margin-top: 0.08rem; line-height: 1.32; }
+}
 
 /* =================================================================
    PAIN — signals
