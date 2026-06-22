@@ -67,6 +67,20 @@
   );
   window.__XAVRO_LITE = LITE; /* exposed for QA introspection */
 
+  /* SAFARI = desktop Safari (Mac). Real WebKit's GPU mishandles the veil's SVG <filter>
+     feGaussianBlur on the wide ribbon strokes: the soft blur is dropped and the white glow
+     stroke renders as a hard bright band (the "white line"), and re-rasterising those filters
+     every breathe-frame lags. Headless WebKit (software raster) hides this, so it only shows on
+     a physical Mac. We give desktop Safari a filter-free veil (CSS `.is-safari` block) + freeze
+     the idle breathe (below). iOS Safari is already covered by LITE (veil hidden), so exclude it
+     here. vendor==="Apple Computer, Inc." is true for Safari, false for Chrome/Firefox. */
+  var SAFARI = !LITE && (
+    navigator.vendor === "Apple Computer, Inc." ||
+    /^((?!chrome|crios|fxios|android).)*safari/i.test(navigator.userAgent)
+  );
+  if (SAFARI) document.documentElement.classList.add("is-safari");
+  window.__XAVRO_SAFARI = SAFARI; /* exposed for QA introspection */
+
   /* =====================================================================
      CTA TARGET — the site's only conversion action.
      ⚠️ BEFORE LAUNCH: set this to your real booking link, e.g.
@@ -718,6 +732,11 @@
          and we only spend a frame while the scroll is actually moving (plus one settle frame), so
          an idle iPad does ~zero work. */
       if (moving || currentY !== lastRenderedY) { renderLite(currentY); lastRenderedY = currentY; }
+    } else if (SAFARI) {
+      /* desktop Safari: full veil + cards (the filter-free `.is-safari` variant), but freeze the
+         continuous breathe (gBreathe/gDrift/gGlow stay 0) and only render while scrolling — so an
+         idle Mac does ~zero work instead of re-compositing the veil every frame. */
+      if (moving || currentY !== lastRenderedY) { render(currentY); lastRenderedY = currentY; }
     } else {
       var t = performance.now() * 0.001;
       gBreathe = Math.sin(t * 0.62);          /* slow scale/rotate pulse */

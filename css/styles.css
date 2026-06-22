@@ -1022,6 +1022,21 @@ body:not(.is-loading) .loader__inner { transform: translate3d(7vw, -1vh, 0) scal
 }
 
 /* =================================================================
+   SAFARI DESKTOP — FILTER-FREE VEIL  (JS sets html.is-safari on Mac Safari only)
+   Real WebKit drops/clips SVG <filter> feGaussianBlur on the wide ribbon strokes: the soft blur
+   vanishes and the white glow stroke renders as a hard bright band (the "white line"), and the
+   filters re-rasterise every frame (lag). Headless WebKit hides this, so it only shows on a
+   physical Mac. We render the veil with plain strokes + gradients only and drop the other
+   continuously-animating heavy paints (grain soft-light blend, animated haze blur). Chrome/Firefox
+   keep the full filtered, glowing, breathing veil. (iOS Safari hides the veil via the LITE block.)
+   ================================================================= */
+html.is-safari .rb--glow,
+html.is-safari .rb--shadow { display: none; }       /* the two SVG-filtered strokes: white line + lag */
+html.is-safari .veil__glow { filter: none; }         /* cobalt bloom without the CSS blur */
+html.is-safari .grain { display: none; }             /* full-screen soft-light blend animating forever */
+html.is-safari .atmos__haze { filter: none; animation: none; } /* no animated GPU blur */
+
+/* =================================================================
    REDUCED MOTION
    ================================================================= */
 @media (prefers-reduced-motion: reduce) {
